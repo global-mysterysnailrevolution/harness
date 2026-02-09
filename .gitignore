@@ -49,3 +49,6 @@ env/
 
 # Keep directory structure but ignore lock contents
 !ai/_locks/.gitkeep
+
+# Vendor directory (cloned reference implementations)
+ai/vendor/

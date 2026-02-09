@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "hooks": {
+    "compaction": {
+      "command": "python",
+      "args": ["scripts/compilers/memory_checkpoint.py", "--input", "ai/memory/raw_memory.log", "--output", "ai/memory/WORKING_MEMORY.md"],
+      "trigger": "context_threshold",
+      "threshold": 0.15
+    },
+    "rehydrate": {
+      "command": "python",
+      "args": ["scripts/compilers/build_context_pack.py", "--output", "ai/context/CONTEXT_PACK.md"],
+      "trigger": "session_start"
+    }
+  },
+  "secretGates": {
+    "patterns": [
+      "*.env*",
+      "*secret*",
+      "*token*",
+      "*key*",
+      "*.pem",
+      "*.key",
+      "*credentials*",
+      "*password*"
+    ],
+    "askFirst": true,
+    "description": "Files matching these patterns require approval before reading"
+  },
+  "riskyCommands": {
+    "patterns": [
+      "rm -rf",
+      "del /s",
+      "format",
+      "dd if=",
+      "git push --force"
+    ],
+    "askFirst": true,
+    "description": "Commands matching these patterns require approval"
+  },
+  "postEdit": {
+    "enabled": true,
+    "command": "scripts/hooks/post_edit.ps1",
+    "triggers": ["file_save", "significant_change"]
+  },
+  "stopTimeCompile": {
+    "enabled": true,
+    "command": "scripts/compilers/build_context_pack.py",
+    "description": "Compiles context pack at end of session"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "hooks": [
+    {
+      "event": "file-watcher",
+      "command": "scripts/hooks/file_watcher.ps1",
+      "description": "Monitors file changes and triggers context priming when feature files are modified"
+    },
+    {
+      "event": "pre-commit",
+      "command": "scripts/hooks/pre_commit.ps1",
+      "description": "Runs safety checks and memory checkpoint before commit"
+    },
+    {
+      "event": "post-edit",
+      "command": "scripts/hooks/post_edit.ps1",
+      "description": "Updates context artifacts after significant edits"
+    }
+  ],
+  "worktrees": {
+    "enabled": true,
+    "guide": ".cursor/WORKTREES_GUIDE.md"
+  }
+}
