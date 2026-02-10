@@ -145,7 +145,13 @@ class ToolBroker:
                     timeout=30
                 )
                 if response.status_code == 200:
-                    return response.json()
+                    result = response.json()
+                    # Redact secrets before returning
+                    if self.security_policy:
+                        result_str = json.dumps(result)
+                        result_str = self.security_policy.redact_secrets(result_str)
+                        result = json.loads(result_str)
+                    return result
             except Exception as e:
                 print(f"ToolHive gateway call failed: {e}, falling back to direct MCP")
         
@@ -188,11 +194,17 @@ class ToolBroker:
         
             import asyncio
             result = asyncio.run(_call_tool())
-            return {
+            result_dict = {
                 "tool_id": tool_id,
                 "server": server_name,
                 "result": result
             }
+            # Redact secrets before returning
+            if self.security_policy:
+                result_str = json.dumps(result_dict)
+                result_str = self.security_policy.redact_secrets(result_str)
+                result_dict = json.loads(result_str)
+            return result_dict
         except ImportError:
             return {
                 "error": "MCP SDK not installed. Install with: pip install mcp",
