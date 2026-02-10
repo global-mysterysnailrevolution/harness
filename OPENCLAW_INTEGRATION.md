@@ -97,6 +97,7 @@ context_file.write_text(context_content)
 session_id = openclaw.sessions_spawn(
     agent_id="web-runner-1"
     # Tools are defined in openclaw/agent_profiles.json, not passed here
+    # OpenClaw uses agentId to look up profile and apply tool allow/deny
 )
 
 # Send initial message with context location
