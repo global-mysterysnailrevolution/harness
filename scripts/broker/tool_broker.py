@@ -8,6 +8,10 @@ import json
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from discovery import ToolDiscovery
 from allowlist_manager import AllowlistManager
 

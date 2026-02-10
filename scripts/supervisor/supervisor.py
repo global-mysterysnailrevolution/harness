@@ -8,12 +8,15 @@ import json
 import argparse
 from pathlib import Path
 from typing import Dict, Optional
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "broker"))
+
 from task_router import TaskRouter
 from gate_enforcer import GateEnforcer
 from budget_tracker import BudgetTracker
 from agent_coordinator import AgentCoordinator
-import sys
-sys.path.append(str(Path(__file__).parent.parent / "broker"))
 from context_hydrator import ContextHydrator
 
 class Supervisor:
