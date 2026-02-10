@@ -60,14 +60,94 @@ class ToolDiscovery:
     
     def _list_tools_from_server(self, server_name: str, server_config: Dict) -> List[Dict]:
         """List tools from a specific MCP server"""
-        # Try to use MCP SDK if available
+        # Try multiple methods to discover tools
+        
+        # Method 1: Use MCP SDK if available
         try:
-            # This would use actual MCP client in production
-            # For now, return empty list - will be implemented with actual MCP client
-            return []
+            import mcp
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
+            
+            # Extract command and args from config
+            command = server_config.get("command")
+            args = server_config.get("args", [])
+            env = server_config.get("env", {})
+            
+            if command:
+                # Create server parameters
+                server_params = StdioServerParameters(
+                    command=command,
+                    args=args or [],
+                    env=env or {}
+                )
+                
+                # Connect and list tools
+                async def _get_tools():
+                    async with stdio_client(server_params) as (read, write):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            result = await session.list_tools()
+                            return result.tools
+                
+                # Run async function
+                import asyncio
+                tools = asyncio.run(_get_tools())
+                return [tool.model_dump() if hasattr(tool, 'model_dump') else dict(tool) for tool in tools]
+        except ImportError:
+            # MCP SDK not available, try alternative methods
+            pass
         except Exception as e:
-            print(f"Error listing tools from {server_name}: {e}")
-            return []
+            print(f"MCP SDK method failed for {server_name}: {e}")
+        
+        # Method 2: Try ToolHive gateway if configured
+        try:
+            toolhive_gateway = server_config.get("toolhive_gateway")
+            if toolhive_gateway:
+                import requests
+                response = requests.get(
+                    f"{toolhive_gateway}/api/tools",
+                    params={"server": server_name},
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("tools", [])
+        except Exception as e:
+            print(f"ToolHive gateway method failed for {server_name}: {e}")
+        
+        # Method 3: Try MCP stdio via subprocess (fallback)
+        try:
+            command = server_config.get("command")
+            if command:
+                # Use npx @modelcontextprotocol/cli if available
+                import shutil
+                if shutil.which("npx"):
+                    result = subprocess.run(
+                        ["npx", "-y", "@modelcontextprotocol/cli", "list-tools", "--server", command],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    if result.returncode == 0:
+                        import json
+                        return json.loads(result.stdout)
+        except Exception as e:
+            print(f"Subprocess method failed for {server_name}: {e}")
+        
+        # Method 4: Check for cached tool registry
+        try:
+            cache_path = Path.cwd() / "ai" / "supervisor" / "tool_registry.json"
+            if cache_path.exists():
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    registry = json.load(f)
+                    if server_name in registry:
+                        return registry[server_name].get("tools", [])
+        except Exception as e:
+            print(f"Cache lookup failed for {server_name}: {e}")
+        
+        # Return empty if all methods fail
+        print(f"Warning: Could not discover tools from {server_name}. Install MCP SDK: pip install mcp")
+        return []
     
     def search_tools(self, query: str, tags: Optional[List[str]] = None, 
                     allow_servers: Optional[List[str]] = None,

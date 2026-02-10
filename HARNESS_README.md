@@ -177,7 +177,7 @@ Integration via `.claude/` directory:
 
 - **Subagents**: Defined in `.claude/agents/*.md`
 - **Hooks**: Configured in `.claude/settings.json`
-- **Skills**: Documented in `.claude/SKILLS.md`
+- **Skills**: Skills are loaded on-demand via the context builder. See `.claude/agents/*.md` for agent-specific capabilities.
 
 Claude agents automatically use harness artifacts for context priming and memory checkpointing.
 

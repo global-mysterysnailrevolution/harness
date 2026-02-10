@@ -74,17 +74,25 @@ Write-Host "`n📁 Creating directory structure..." -ForegroundColor Cyan
 
 $dirs = @(
     "ai\context",
+    "ai\context\specialized",
     "ai\memory",
     "ai\tests",
     "ai\research",
+    "ai\research\landscape_reports",
     "ai\vendor",
     "ai\_backups",
     "ai\_locks",
+    "ai\supervisor",
     "scripts\workers",
     "scripts\compilers",
     "scripts\hooks",
+    "scripts\broker",
+    "scripts\supervisor",
     ".cursor",
-    ".claude\agents"
+    ".claude\agents",
+    ".claude\hooks",
+    "openclaw",
+    "gemini"
 )
 
 foreach ($dir in $dirs) {
@@ -241,6 +249,121 @@ $codexWorkflow = Join-Path $TargetDir "CODEX_WORKFLOW.md"
 if (-not (Test-Path $codexWorkflow)) {
     "# Codex CLI Workflow Guide`n`nSee HARNESS_README.md for details." | Out-File -FilePath $codexWorkflow -Encoding UTF8
     Write-Host "  ✓ CODEX_WORKFLOW.md" -ForegroundColor Gray
+}
+
+# Create supervisor config files
+Write-Host "`n⚙️  Creating supervisor configuration files..." -ForegroundColor Cyan
+
+# Supervisor allowlists
+$allowlistsPath = Join-Path $TargetDir "ai\supervisor\allowlists.json"
+if (-not (Test-Path $allowlistsPath)) {
+    $allowlistsContent = Get-Content (Join-Path $ScriptDir "ai\supervisor\allowlists.json") -ErrorAction SilentlyContinue
+    if (-not $allowlistsContent) {
+        # Create default allowlists
+        @{
+            version = "1.0"
+            default_allowlist = @{
+                servers = @()
+                tools = @()
+            }
+            agent_profiles = @{
+                orchestrator = @{
+                    servers = @("tool-broker")
+                    tools = @("search_tools", "describe_tool")
+                }
+                "web-runner" = @{
+                    servers = @("browser")
+                    tools = @("browser.*", "screenshot")
+                }
+                judge = @{
+                    servers = @("image")
+                    tools = @("image.*", "read")
+                }
+                fixer = @{
+                    servers = @("fs", "git")
+                    tools = @("write", "read", "git.*")
+                }
+            }
+        } | ConvertTo-Json -Depth 10 | Out-File -FilePath $allowlistsPath -Encoding UTF8
+    } else {
+        Copy-Item (Join-Path $ScriptDir "ai\supervisor\allowlists.json") $allowlistsPath -Force
+    }
+    Write-Host "  ✓ ai\supervisor\allowlists.json" -ForegroundColor Gray
+}
+
+# Supervisor gates
+$gatesPath = Join-Path $TargetDir "ai\supervisor\gates.json"
+if (-not (Test-Path $gatesPath)) {
+    $gatesContent = Get-Content (Join-Path $ScriptDir "ai\supervisor\gates.json") -ErrorAction SilentlyContinue
+    if (-not $gatesContent) {
+        # Create default gates
+        @{
+            version = "1.0"
+            gates = @{
+                wheel_scout = @{
+                    enabled = $true
+                    required_for = @("build", "architecture", "system")
+                    timeout_seconds = 300
+                }
+                budget = @{
+                    enabled = $true
+                    max_tokens = 1000000
+                    max_api_calls = 1000
+                }
+                security = @{
+                    enabled = $true
+                    require_approval_for = @("git push --force", "rm -rf")
+                }
+            }
+        } | ConvertTo-Json -Depth 10 | Out-File -FilePath $gatesPath -Encoding UTF8
+    } else {
+        Copy-Item (Join-Path $ScriptDir "ai\supervisor\gates.json") $gatesPath -Force
+    }
+    Write-Host "  ✓ ai\supervisor\gates.json" -ForegroundColor Gray
+}
+
+# Create .gitkeep files for empty directories
+$gitkeepDirs = @(
+    "ai\context\specialized",
+    "ai\research\landscape_reports",
+    "ai\vendor",
+    "ai\_backups",
+    "ai\_locks"
+)
+
+foreach ($dir in $gitkeepDirs) {
+    $fullPath = Join-Path $TargetDir $dir
+    $gitkeepPath = Join-Path $fullPath ".gitkeep"
+    if ((Test-Path $fullPath) -and -not (Test-Path $gitkeepPath)) {
+        "" | Out-File -FilePath $gitkeepPath -Encoding UTF8
+    }
+}
+
+# Create supervisor state files
+$statePath = Join-Path $TargetDir "ai\supervisor\state.json"
+if (-not (Test-Path $statePath)) {
+    @{
+        version = "1.0"
+        current_task = $null
+        active_agents = @()
+        budget_used = @{
+            tokens = 0
+            api_calls = 0
+            time_seconds = 0
+        }
+    } | ConvertTo-Json -Depth 10 | Out-File -FilePath $statePath -Encoding UTF8
+    Write-Host "  ✓ ai\supervisor\state.json" -ForegroundColor Gray
+}
+
+$taskQueuePath = Join-Path $TargetDir "ai\supervisor\task_queue.json"
+if (-not (Test-Path $taskQueuePath)) {
+    @{
+        version = "1.0"
+        pending = @()
+        in_progress = @()
+        completed = @()
+    } | ConvertTo-Json -Depth 10 | Out-File -FilePath $taskQueuePath -Encoding UTF8
+    Write-Host "  ✓ ai\supervisor\task_queue.json" -ForegroundColor Gray
 }
 
 Write-Host "`n✅ Harness installation complete!" -ForegroundColor Green

@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "gates": {
+    "wheel_scout": {
+      "enabled": true,
+      "required_for": ["build", "architecture", "system", "framework"],
+      "bypass_conditions": ["emergency", "hotfix"],
+      "timeout_seconds": 300,
+      "description": "Requires landscape report before building new systems"
+    },
+    "budget": {
+      "enabled": true,
+      "max_tokens": 1000000,
+      "max_api_calls": 1000,
+      "max_time_seconds": 3600,
+      "description": "Budget limits for agent operations"
+    },
+    "security": {
+      "enabled": true,
+      "require_approval_for": [
+        "git push --force",
+        "rm -rf",
+        "format",
+        "exec with network",
+        "install package"
+      ],
+      "description": "Security gates for risky operations"
+    }
+  },
+  "gate_history": []
+}

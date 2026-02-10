@@ -110,15 +110,81 @@ class ToolBroker:
         # Extract server from tool_id
         server_name = tool_id.split(":")[0] if ":" in tool_id else "unknown"
         
-        # In production, this would make actual MCP call
-        # For now, return placeholder
-        return {
-            "tool_id": tool_id,
-            "server": server_name,
-            "args": args,
-            "result": "Tool call would be executed here via MCP client",
-            "note": "Implement actual MCP client integration"
-        }
+        # Try ToolHive gateway first if configured
+        toolhive_gateway = os.getenv("TOOLHIVE_GATEWAY_URL")
+        if toolhive_gateway:
+            try:
+                import requests
+                response = requests.post(
+                    f"{toolhive_gateway}/api/tools/call",
+                    json={
+                        "tool_id": tool_id,
+                        "args": args,
+                        "agent_id": agent_id
+                    },
+                    timeout=30
+                )
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                print(f"ToolHive gateway call failed: {e}, falling back to direct MCP")
+        
+        # Fallback: Direct MCP client call
+        try:
+            import mcp
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
+            
+            # Get server config from discovery
+            server_config = self.discovery._get_server_config(server_name)
+            if not server_config:
+                return {
+                    "error": "Server config not found",
+                    "server": server_name
+                }
+            
+            # Create server parameters
+            command = server_config.get("command")
+            if not command:
+                return {
+                    "error": "Server command not configured",
+                    "server": server_name
+                }
+            
+            server_params = StdioServerParameters(
+                command=command,
+                args=server_config.get("args", []),
+                env=server_config.get("env", {})
+            )
+            
+            # Call tool via MCP
+            async def _call_tool():
+                async with stdio_client(server_params) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        tool_name = tool_id.split(":")[1] if ":" in tool_id else tool_id
+                        result = await session.call_tool(tool_name, args)
+                        return result.content[0].text if result.content else result
+        
+            import asyncio
+            result = asyncio.run(_call_tool())
+            return {
+                "tool_id": tool_id,
+                "server": server_name,
+                "result": result
+            }
+        except ImportError:
+            return {
+                "error": "MCP SDK not installed. Install with: pip install mcp",
+                "tool_id": tool_id,
+                "note": "ToolHive gateway recommended for production"
+            }
+        except Exception as e:
+            return {
+                "error": f"MCP call failed: {str(e)}",
+                "tool_id": tool_id,
+                "server": server_name
+            }
     
     def load_tools(self, tool_ids: List[str], agent_id: Optional[str] = None) -> List[Dict]:
         """

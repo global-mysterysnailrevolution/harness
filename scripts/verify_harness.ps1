@@ -173,6 +173,55 @@ Test-Step "Platform integration files" {
     }
 }
 
+# Test 8: Supervisor system files
+Test-Step "Supervisor system files" {
+    $supervisorFiles = @(
+        "ai\supervisor\allowlists.json",
+        "ai\supervisor\gates.json",
+        "ai\supervisor\state.json",
+        "ai\supervisor\task_queue.json"
+    )
+    
+    foreach ($file in $supervisorFiles) {
+        $fullPath = Join-Path $RepoPath $file
+        if (-not (Test-Path $fullPath)) {
+            throw "Supervisor file missing: $file"
+        }
+    }
+}
+
+# Test 9: Tool broker files
+Test-Step "Tool broker files" {
+    $brokerFiles = @(
+        "scripts\broker\tool_broker.py",
+        "scripts\broker\discovery.py",
+        "scripts\broker\allowlist_manager.py"
+    )
+    
+    foreach ($file in $brokerFiles) {
+        $fullPath = Join-Path $RepoPath $file
+        if (-not (Test-Path $fullPath)) {
+            throw "Broker file missing: $file"
+        }
+    }
+}
+
+# Test 10: Supervisor core files
+Test-Step "Supervisor core files" {
+    $supervisorCoreFiles = @(
+        "scripts\supervisor\supervisor.py",
+        "scripts\supervisor\task_router.py",
+        "scripts\supervisor\gate_enforcer.py"
+    )
+    
+    foreach ($file in $supervisorCoreFiles) {
+        $fullPath = Join-Path $RepoPath $file
+        if (-not (Test-Path $fullPath)) {
+            throw "Supervisor core file missing: $file"
+        }
+    }
+}
+
 # Summary
 Write-Host "`n=== Verification Summary ===" -ForegroundColor Cyan
 Write-Host "Tests passed: $testsPassed" -ForegroundColor Green

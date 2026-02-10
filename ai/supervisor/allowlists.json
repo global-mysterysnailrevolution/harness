@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "default_allowlist": {
+    "servers": [],
+    "tools": []
+  },
+  "agent_profiles": {
+    "orchestrator": {
+      "servers": ["tool-broker"],
+      "tools": ["search_tools", "describe_tool"],
+      "description": "Minimal tools for orchestration"
+    },
+    "web-runner": {
+      "servers": ["browser", "playwright"],
+      "tools": ["browser.*", "screenshot", "act", "console"],
+      "description": "Browser automation tools only"
+    },
+    "judge": {
+      "servers": ["image", "fs"],
+      "tools": ["image.*", "read", "compare"],
+      "description": "Evaluation and comparison tools"
+    },
+    "fixer": {
+      "servers": ["fs", "git", "runtime"],
+      "tools": ["write", "read", "git.*", "exec"],
+      "description": "Code editing and execution tools"
+    },
+    "wheel-scout": {
+      "servers": ["web", "github"],
+      "tools": ["web_search", "github_search", "read"],
+      "description": "Research and discovery tools only"
+    },
+    "context-builder": {
+      "servers": ["web", "github", "fs"],
+      "tools": ["web_search", "github_clone", "read", "write"],
+      "description": "Documentation and repo cloning tools"
+    }
+  },
+  "server_configs": {
+    "tool-broker": {
+      "type": "internal",
+      "description": "Internal tool broker meta-tools"
+    },
+    "browser": {
+      "type": "mcp",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-playwright"],
+      "description": "Browser automation via Playwright MCP"
+    },
+    "playwright": {
+      "type": "mcp",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-playwright"],
+      "description": "Playwright MCP server"
+    }
+  }
+}
