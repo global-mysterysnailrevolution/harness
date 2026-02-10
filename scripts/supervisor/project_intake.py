@@ -5,10 +5,17 @@ Collects project requirements before swarm spins up
 """
 
 import json
-import yaml
 from pathlib import Path
 from typing import Dict, Optional, List
 from datetime import datetime
+
+# Try to import yaml, fallback to JSON if not available
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+    # Fallback: use JSON instead of YAML
 
 class ProjectIntake:
     """Collects and validates project requirements"""
@@ -89,18 +96,27 @@ class ProjectIntake:
         return intake
     
     def save_intake(self, intake: Dict):
-        """Save intake to YAML file"""
+        """Save intake to YAML or JSON file"""
         with open(self.intake_file, 'w', encoding='utf-8') as f:
-            yaml.dump(intake, f, default_flow_style=False, sort_keys=False)
+            if HAS_YAML:
+                yaml.dump(intake, f, default_flow_style=False, sort_keys=False)
+            else:
+                # Fallback to JSON if yaml not available
+                json.dump(intake, f, indent=2)
     
     def load_intake(self) -> Optional[Dict]:
-        """Load intake from file"""
+        """Load intake from file (YAML or JSON)"""
         if not self.intake_file.exists():
             return None
         
         try:
             with open(self.intake_file, 'r', encoding='utf-8') as f:
-                return yaml.safe_load(f)
+                content = f.read()
+                if HAS_YAML and (self.intake_file.suffix == '.yaml' or self.intake_file.suffix == '.yml'):
+                    return yaml.safe_load(content)
+                else:
+                    # Try JSON
+                    return json.loads(content)
         except Exception as e:
             print(f"Error loading intake: {e}")
             return None
