@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # ToolHive Gateway (optional but recommended)
+  toolhive:
+    image: stacklok/toolhive:latest
+    container_name: toolhive
+    ports:
+      - "8080:8080"
+    volumes:
+      - toolhive-data:/data
+    environment:
+      - TOOLHIVE_SECRET_KEY=${TOOLHIVE_SECRET_KEY:-}
+    restart: unless-stopped
+    networks:
+      - harness-network
+
+  # Harness Broker (if running as service)
+  harness-broker:
+    build:
+      context: .
+      dockerfile: Dockerfile.broker
+    container_name: harness-broker
+    volumes:
+      - ./ai:/app/ai
+      - ./scripts:/app/scripts
+      - ./openclaw:/app/openclaw
+    environment:
+      - TOOLHIVE_GATEWAY_URL=http://toolhive:8080
+      - PYTHONPATH=/app
+    networks:
+      - harness-network
+    restart: unless-stopped
+    profiles:
+      - broker-service
+
+networks:
+  harness-network:
+    driver: bridge
+
+volumes:
+  toolhive-data:

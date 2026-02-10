@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt* ./
+RUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || \
+    pip install --no-cache-dir mcp requests
+
+# Copy harness files
+COPY scripts/broker/ ./scripts/broker/
+COPY ai/supervisor/ ./ai/supervisor/
+COPY openclaw/ ./openclaw/
+
+# Make broker executable
+RUN chmod +x scripts/broker/tool_broker.py
+
+# Expose broker API (if running as service)
+EXPOSE 8000
+
+# Run broker (if running as service)
+CMD ["python", "-m", "scripts.broker.tool_broker", "server"]

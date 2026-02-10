@@ -7,13 +7,22 @@ Pre-spawn hook that builds specialized context for agents
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
-def build_context_for_agent(agent_id: str, agent_role: str, task_description: str, repo_path: Path):
-    """Build specialized context before spawning agent in OpenClaw"""
+def build_context_for_agent(agent_id: str, agent_role: str, task_description: str, 
+                           repo_path: Path, workspace_path: Optional[Path] = None):
+    """
+    Build specialized context before spawning agent in OpenClaw.
+    
+    Writes context to workspace file (not injected via context_file parameter,
+    since OpenClaw doesn't support that). Use sessions_send to point agent to file.
+    """
     sys.path.append(str(repo_path / "scripts" / "broker"))
     from context_hydrator import ContextHydrator
     
-    hydrator = ContextHydrator(repo_path)
+    # Use workspace path if provided, otherwise use repo_path
+    base_path = workspace_path or repo_path
+    hydrator = ContextHydrator(base_path)
     
     # Load agent profile to get requirements
     profile_file = repo_path / "openclaw" / "agent_profiles.json"
@@ -32,12 +41,12 @@ def build_context_for_agent(agent_id: str, agent_role: str, task_description: st
         task_description=task_description,
         agent_role=agent_role,
         existing_context={
-            "repo_map": str(repo_path / "ai/context/REPO_MAP.md"),
-            "context_pack": str(repo_path / "ai/context/CONTEXT_PACK.md")
+            "repo_map": str(base_path / "ai/context/REPO_MAP.md"),
+            "context_pack": str(base_path / "ai/context/CONTEXT_PACK.md")
         }
     )
     
-    return str(context_file)
+    return context_file
 
 if __name__ == "__main__":
     # CLI interface

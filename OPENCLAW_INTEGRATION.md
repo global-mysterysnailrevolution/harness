@@ -66,22 +66,33 @@ supervisor.process_task(task_id)
 
 ### OpenClaw-Specific Spawning
 
-The supervisor uses OpenClaw's `sessions_spawn` with pre-hydrated context:
+**Important**: OpenClaw's `sessions_spawn` does NOT support `context_file` parameter. Use workspace files + `sessions_send` instead:
 
 ```python
-# Context builder runs first
-context_file = build_context_for_agent(
+# Context builder runs first and writes to workspace
+context_path = build_context_for_agent(
     agent_id="web-runner-1",
     agent_role="web-runner",
     task_description="Test login flow",
-    repo_path=Path(".")
+    repo_path=Path("."),
+    workspace_path=Path("~/.openclaw/workspace/project")
 )
 
-# Spawn with context
-openclaw.sessions_spawn(
+# Write context to workspace (shared location)
+context_file = workspace_path / "ai" / "context" / "specialized" / f"{agent_id}_CONTEXT.md"
+context_file.parent.mkdir(parents=True, exist_ok=True)
+context_file.write_text(context_content)
+
+# Spawn agent
+session_id = openclaw.sessions_spawn(
     agent_id="web-runner-1",
-    tools={"allow": ["browser", "image"]},
-    context_file=context_file  # Injected into agent
+    tools={"allow": ["browser", "image"]}
+)
+
+# Send initial message with context location
+openclaw.sessions_send(
+    session_id=session_id,
+    message=f"Read {context_file} and acknowledge constraints. This context contains specialized documentation and examples for your task."
 )
 ```
 
@@ -136,18 +147,20 @@ Supervisor enforces gate: implementers blocked until Wheel-Scout clears.
 
 ## Context Builder Hook
 
-Pre-spawn hook builds context automatically:
+Pre-spawn hook builds context and writes to workspace:
 
 ```python
 # Hook runs before agent spawn
-context_file = context_builder_hook.build_context_for_agent(
+context_path = context_builder_hook.build_context_for_agent(
     agent_id="agent-1",
     agent_role="web-runner",
     task_description="Test login",
-    repo_path=Path(".")
+    repo_path=Path("."),
+    workspace_path=Path("~/.openclaw/workspace/project")
 )
 
-# Context injected into agent system prompt
+# Context written to workspace file
+# Agent receives message via sessions_send pointing to context file
 ```
 
 ## Best Practices
