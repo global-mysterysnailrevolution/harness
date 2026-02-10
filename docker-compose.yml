@@ -6,7 +6,7 @@ services:
     image: stacklok/toolhive:latest
     container_name: toolhive
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # Bind to localhost only (VPS security)
     volumes:
       - toolhive-data:/data
     environment:

@@ -47,6 +47,16 @@ Edit `openclaw/supervisor_config.json`:
 
 Edit `openclaw/agent_profiles.json` to define agent capabilities and context requirements.
 
+**Important**: Spawn agents by `agentId`, not by passing `tools` parameter. Tools are defined in the profile:
+
+```python
+# Correct: Spawn by agentId (tools from profile)
+session_id = openclaw.sessions_spawn(agent_id="web-runner")
+
+# Wrong: Don't pass tools per-call
+# session_id = openclaw.sessions_spawn(agent_id="web-runner", tools={...})
+```
+
 ## Usage
 
 ### Starting Supervisor
@@ -83,10 +93,10 @@ context_file = workspace_path / "ai" / "context" / "specialized" / f"{agent_id}_
 context_file.parent.mkdir(parents=True, exist_ok=True)
 context_file.write_text(context_content)
 
-# Spawn agent
+# Spawn agent by agentId (tools defined in agent profile, not per-call)
 session_id = openclaw.sessions_spawn(
-    agent_id="web-runner-1",
-    tools={"allow": ["browser", "image"]}
+    agent_id="web-runner-1"
+    # Tools are defined in openclaw/agent_profiles.json, not passed here
 )
 
 # Send initial message with context location
