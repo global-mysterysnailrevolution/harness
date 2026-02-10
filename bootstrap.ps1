@@ -199,8 +199,41 @@ if (-not (Test-Path $claudeSettings)) {
             patterns = @("*.env*", "*secret*", "*token*", "*key*", "*.pem", "*.key")
             askFirst = $true
         }
+        riskyCommands = @{
+            patterns = @("rm -rf", "del /s", "format", "dd if=", "git push --force")
+            askFirst = $true
+        }
+        postEdit = @{
+            enabled = $true
+            command = "scripts\hooks\post_edit.ps1"
+            triggers = @("file_save", "significant_change")
+        }
+        stopTimeCompile = @{
+            enabled = $true
+            command = "scripts\compilers\build_context_pack.py"
+            description = "Compiles context pack at end of session"
+        }
+        supervisor = @{
+            enabled = $true
+            toolBroker = @{ enabled = $true }
+            wheelScout = @{ enabled = $true; requiredForBuild = $true }
+            contextBuilder = @{ enabled = $true; preSpawnHook = "scripts\hooks\pre_spawn_context.ps1" }
+        }
     } | ConvertTo-Json -Depth 10 | Out-File -FilePath $claudeSettings -Encoding UTF8
     Write-Host "  ✓ .claude\settings.json" -ForegroundColor Gray
+}
+
+# Claude supervisor config
+$claudeSupervisor = Join-Path $TargetDir ".claude\supervisor.json"
+if (-not (Test-Path $claudeSupervisor)) {
+    @{
+        version = "1.0"
+        supervisor = @{
+            enabled = $true
+            state_dir = "ai/supervisor"
+        }
+    } | ConvertTo-Json -Depth 10 | Out-File -FilePath $claudeSupervisor -Encoding UTF8
+    Write-Host "  ✓ .claude\supervisor.json" -ForegroundColor Gray
 }
 
 # Codex workflow doc
