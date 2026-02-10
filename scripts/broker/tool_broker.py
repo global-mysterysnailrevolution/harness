@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from discovery import ToolDiscovery
 from allowlist_manager import AllowlistManager
+from security_policy import SecurityPolicy
+from forge_approval import ForgeApproval
 
 class ToolBroker:
     """Main tool broker implementation"""
@@ -21,6 +23,8 @@ class ToolBroker:
     def __init__(self, config_path: Optional[Path] = None):
         self.discovery = ToolDiscovery()
         self.allowlist_manager = AllowlistManager()
+        self.security_policy = SecurityPolicy()
+        self.forge_approval = ForgeApproval()
         self.tool_schemas_cache: Dict[str, Dict] = {}
         self.config_path = config_path
     
@@ -90,7 +94,7 @@ class ToolBroker:
         """
         Call a tool via proxy (avoids schema injection)
         
-        Returns tool result
+        Returns tool result (with secrets redacted)
         """
         # Check allowlist
         if agent_id and not self.allowlist_manager.is_tool_allowed(agent_id, tool_id):
@@ -98,6 +102,22 @@ class ToolBroker:
                 "error": "Tool not allowed for this agent",
                 "tool_id": tool_id
             }
+        
+        # Security policy checks
+        # 1. Rate limit
+        allowed, error = self.security_policy.check_rate_limit(agent_id or "default", tool_id)
+        if not allowed:
+            return {"error": error, "tool_id": tool_id}
+        
+        # 2. Argument validation
+        allowed, error = self.security_policy.validate_arguments(tool_id, args, agent_id or "default")
+        if not allowed:
+            return {"error": error, "tool_id": tool_id}
+        
+        # 3. Budget check
+        allowed, error = self.security_policy.check_budget(agent_id or "default", {"tokens": 0, "cost_usd": 0})
+        if not allowed:
+            return {"error": error, "tool_id": tool_id}
         
         # Get tool schema to determine server
         schema = self.describe_tool(tool_id, agent_id)

@@ -111,22 +111,33 @@ openclaw.sessions_send(
 
 ## Tool Broker Integration
 
-OpenClaw agents connect to tool broker via MCP:
+**Important**: OpenClaw agents do NOT connect to broker via MCP. Use the **OpenClaw Skill wrapper** instead.
 
+### Option A: Skill Wrapper (Recommended)
+
+Agents call broker via skill commands (see `openclaw/harness_skill_wrapper.py`):
+- `harness_search_tools` - Find available tools
+- `harness_describe_tool` - Get tool schema
+- `harness_call_tool` - Execute tools via proxy
+- `harness_load_tools` - Load tool schemas
+
+### Option B: Restricted Exec (Alternative)
+
+If skill wrapper not available, use restricted `exec`:
 ```json
 {
-  "mcp.servers": {
-    "tool-broker": {
-      "command": "python",
-      "args": ["scripts/broker/tool_broker.py", "server"]
+  "tools": {
+    "allow": ["exec"],
+    "exec": {
+      "allowed_commands": [
+        "python -m scripts.broker.tool_broker call --tool <name> --json <args>"
+      ]
     }
   }
 }
 ```
 
-Agents use broker's meta-tools:
-- `search_tools()` - Find available tools
-- `call_tool()` - Execute tools via proxy
+**Security**: Broker enforces allowlists, rate limits, argument validation, and budget checks at boundary.
 
 ## Wheel-Scout Integration
 

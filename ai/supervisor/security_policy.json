@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "Security policy for broker boundary enforcement",
+  "rate_limits": {
+    "default": {
+      "max_calls": 1000,
+      "window_seconds": 3600
+    },
+    "web-runner": {
+      "browser": {
+        "max_calls": 100,
+        "window_seconds": 300
+      }
+    }
+  },
+  "argument_patterns": {
+    "exec": {
+      "block": ["shell=true", "eval(", "exec("]
+    },
+    "filesystem": {
+      "block": ["../", "/etc/", "/root/", "/home/"]
+    }
+  },
+  "blocked_patterns": [
+    "shell=true",
+    "eval\\(",
+    "exec\\(",
+    "__import__",
+    "subprocess",
+    "os\\.system",
+    "rm -rf",
+    "format c:",
+    "dd if="
+  ],
+  "budgets": {
+    "default": {
+      "max_tokens": 1000000,
+      "max_api_calls": 1000,
+      "max_cost_usd": 10.0
+    }
+  },
+  "forge_approval_required": true,
+  "secret_attach_approval_required": true,
+  "log_redaction": true,
+  "artifact_retention_days": 7,
+  "max_artifact_size_mb": 100
+}
