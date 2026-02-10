@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "hooks": [
+    {
+      "event": "pre-subagent-spawn",
+      "command": "python",
+      "args": [
+        "scripts/broker/context_hydrator.py",
+        "--agent-id", "${agent_id}",
+        "--task", "${task_description}",
+        "--role", "${agent_role}",
+        "--repo", "."
+      ],
+      "description": "Builds specialized context before subagent spawn"
+    },
+    {
+      "event": "post-wheel-scout",
+      "command": "python",
+      "args": [
+        "scripts/supervisor/gate_enforcer.py",
+        "--clear-gate",
+        "--task-id", "${task_id}",
+        "--report", "${landscape_report_path}"
+      ],
+      "description": "Clears Wheel-Scout gate after report generated"
+    }
+  ]
+}

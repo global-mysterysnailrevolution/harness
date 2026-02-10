@@ -31,6 +31,22 @@ The installer will:
 
 ## Architecture
 
+### Multi-Agent Supervisor System
+
+The harness includes a **supervisor system** that orchestrates multiple agents with:
+
+- **Tool Broker**: Unified MCP tool access with allowlisting (reduces token usage by 80%+)
+- **Wheel-Scout Agent**: Reality checks before building (prevents reinventing wheels)
+- **Dynamic Context Builder**: On-demand documentation fetching and repo cloning
+- **Specialized Context**: Each sub-agent receives context tailored to their role
+
+See platform-specific guides:
+- [OpenClaw Integration](OPENCLAW_INTEGRATION.md)
+- [Cursor Supervisor Guide](CURSOR_SUPERVISOR_GUIDE.md)
+- [Claude Supervisor Guide](CLAUDE_SUPERVISOR_GUIDE.md)
+- [Gemini Integration](GEMINI_INTEGRATION.md)
+- [Tool Broker Guide](TOOL_BROKER_GUIDE.md)
+
 ### The Four Parallel Behaviors
 
 1. **Context Priming** (ALWAYS runs in parallel)
@@ -62,22 +78,62 @@ The installer will:
 ```
 your-repo/
 ├── ai/
-│   ├── context/          # Context artifacts (REPO_MAP, CONTEXT_PACK, etc.)
+│   ├── context/          # Context artifacts
+│   │   ├── REPO_MAP.md, CONTEXT_PACK.md, etc.
+│   │   └── specialized/  # Per-agent specialized contexts
 │   ├── memory/           # Session memory (WORKING_MEMORY, DECISIONS)
 │   ├── tests/            # Test plans and coverage notes
-│   ├── research/         # Archived web research with citations
-│   ├── vendor/           # Cloned reference implementations (gitignored)
-│   ├── _backups/         # Timestamped backups before risky operations
-│   └── _locks/           # File locks for concurrent operation safety
+│   ├── research/         # Archived web research
+│   │   └── landscape_reports/  # Wheel-Scout reports
+│   ├── vendor/           # Cloned reference repos (gitignored)
+│   ├── supervisor/       # Supervisor state and allowlists
+│   ├── _backups/         # Timestamped backups
+│   └── _locks/           # File locks for concurrency
 ├── scripts/
-│   ├── workers/          # Background worker scripts
-│   ├── compilers/        # Deterministic artifact compilers
-│   └── hooks/           # Git hooks and event handlers
-├── .cursor/              # Cursor IDE integration
-│   └── hooks.json       # Cursor event hooks
+│   ├── broker/           # Tool broker layer
+│   │   ├── tool_broker.py/js
+│   │   ├── discovery.py
+│   │   ├── allowlist_manager.py
+│   │   ├── doc_fetcher.py
+│   │   ├── repo_cloner.py
+│   │   ├── context_hydrator.py
+│   │   └── reality_cache.py
+│   ├── supervisor/       # Supervisor core
+│   │   ├── supervisor.py
+│   │   ├── task_router.py
+│   │   ├── gate_enforcer.py
+│   │   ├── budget_tracker.py
+│   │   └── agent_coordinator.py
+│   ├── workers/          # Background workers
+│   │   ├── context_priming.ps1
+│   │   ├── context_builder.ps1  # Dynamic context builder
+│   │   ├── wheel_scout.ps1      # Reality check agent
+│   │   └── [existing workers]
+│   ├── compilers/        # Deterministic compilers
+│   │   ├── build_specialized_context.py/js
+│   │   ├── landscape_report.py
+│   │   └── [existing compilers]
+│   └── hooks/           # Event hooks
+│       └── pre_spawn_context.ps1
+├── .cursor/              # Cursor integration
+│   ├── hooks.json
+│   ├── supervisor.json
+│   └── context_builder_hook.ps1
 ├── .claude/             # Claude Code integration
-│   ├── agents/          # Claude subagent definitions
-│   └── settings.json    # Claude hooks and settings
+│   ├── agents/          # Subagent definitions
+│   │   ├── supervisor.md
+│   │   ├── wheel-scout.md
+│   │   ├── context-builder.md
+│   │   └── tool-broker.md
+│   ├── supervisor.json
+│   └── hooks/context_builder.json
+├── openclaw/            # OpenClaw integration
+│   ├── supervisor_config.json
+│   ├── agent_profiles.json
+│   └── context_builder_hook.py
+├── gemini/              # Gemini integration
+│   ├── supervisor_config.json
+│   └── context_builder.py
 └── CODEX_WORKFLOW.md    # Codex CLI workflow guide
 ```
 

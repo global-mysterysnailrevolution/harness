@@ -70,6 +70,9 @@ try {
     if ($LASTEXITCODE -ne 0) {
         node "$RepoPath\scripts\compilers\build_context_pack.js" --output $contextPack 2>&1 | Out-Null
     }
+    
+    # 4. Note: Specialized context building happens on-demand via context_builder.ps1
+    # This is called by supervisor before spawning sub-agents
 
     Write-Host "[Context Priming] Complete!" -ForegroundColor Green
     Write-Host "  ✓ REPO_MAP.md" -ForegroundColor Gray

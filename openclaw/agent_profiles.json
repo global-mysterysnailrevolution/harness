@@ -1,0 +1,77 @@
+{
+  "profiles": {
+    "orchestrator": {
+      "description": "Main orchestrator - minimal tools, spawns other agents",
+      "tools": {
+        "profile": "minimal",
+        "allow": ["group:sessions", "agents_list", "read"],
+        "deny": ["group:runtime", "group:fs"]
+      },
+      "context_builder": {
+        "enabled": false
+      }
+    },
+    "web-runner": {
+      "description": "Runs browser automation and captures screenshots",
+      "tools": {
+        "allow": ["browser", "image", "group:fs"],
+        "deny": ["group:runtime"]
+      },
+      "context_builder": {
+        "enabled": true,
+        "requirements": {
+          "languages": ["javascript", "typescript"],
+          "frameworks": ["react", "vue", "angular"],
+          "search_queries": ["browser automation", "testing frameworks"]
+        }
+      }
+    },
+    "judge": {
+      "description": "Evaluates test results and visual diffs",
+      "tools": {
+        "allow": ["image", "read", "group:fs"],
+        "deny": ["group:runtime", "browser"]
+      },
+      "context_builder": {
+        "enabled": true,
+        "requirements": {
+          "search_queries": ["visual diff", "test evaluation", "assertion patterns"]
+        }
+      }
+    },
+    "fixer": {
+      "description": "Edits code and runs tests",
+      "tools": {
+        "profile": "coding",
+        "allow": ["group:fs", "group:runtime"],
+        "deny": []
+      },
+      "context_builder": {
+        "enabled": true,
+        "requirements": {
+          "search_queries": ["debugging patterns", "error resolution", "code fixes"]
+        }
+      }
+    },
+    "wheel-scout": {
+      "description": "Reality check agent - finds existing solutions",
+      "tools": {
+        "allow": ["web_search", "github_search", "read"],
+        "deny": ["group:fs", "group:runtime", "browser"]
+      },
+      "context_builder": {
+        "enabled": false
+      }
+    },
+    "context-builder": {
+      "description": "Builds specialized context for sub-agents",
+      "tools": {
+        "allow": ["web_search", "github_search", "group:fs", "read"],
+        "deny": ["group:runtime", "browser"]
+      },
+      "context_builder": {
+        "enabled": false
+      }
+    }
+  }
+}

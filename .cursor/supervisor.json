@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "supervisor": {
+    "enabled": true,
+    "state_dir": "ai/supervisor",
+    "tool_broker": {
+      "enabled": true,
+      "mcp_server": "tool-broker"
+    },
+    "wheel_scout": {
+      "enabled": true,
+      "required_for_build": true
+    },
+    "context_builder": {
+      "enabled": true,
+      "cache_hours": 1
+    }
+  },
+  "hooks": {
+    "pre-spawn": {
+      "command": "scripts/hooks/pre_spawn_context.ps1",
+      "description": "Builds specialized context before spawning agent"
+    }
+  }
+}

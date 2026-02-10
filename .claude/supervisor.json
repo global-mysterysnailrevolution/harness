@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "supervisor": {
+    "enabled": true,
+    "state_dir": "ai/supervisor",
+    "tool_broker": {
+      "enabled": true
+    },
+    "wheel_scout": {
+      "enabled": true,
+      "required_for_build": true
+    },
+    "context_builder": {
+      "enabled": true,
+      "cache_hours": 1
+    }
+  },
+  "hooks": {
+    "pre-subagent-spawn": {
+      "command": "python",
+      "args": ["scripts/broker/context_hydrator.py", "--build"],
+      "description": "Builds specialized context before subagent spawn"
+    }
+  }
+}

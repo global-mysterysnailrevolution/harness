@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "supervisor": {
+    "enabled": true,
+    "state_dir": "ai/supervisor",
+    "tool_broker": {
+      "enabled": true,
+      "config_path": "ai/supervisor/allowlists.json"
+    },
+    "wheel_scout": {
+      "enabled": true,
+      "required_for_build": true
+    },
+    "context_builder": {
+      "enabled": true,
+      "cache_hours": 1
+    }
+  },
+  "agents": {
+    "orchestrator": {
+      "tools": {
+        "profile": "minimal",
+        "allow": ["group:sessions", "agents_list", "read"]
+      }
+    },
+    "web-runner": {
+      "tools": {
+        "allow": ["browser", "image", "group:fs"]
+      }
+    },
+    "judge": {
+      "tools": {
+        "allow": ["image", "read", "group:fs"]
+      }
+    },
+    "fixer": {
+      "tools": {
+        "profile": "coding",
+        "allow": ["group:fs", "group:runtime"]
+      }
+    },
+    "wheel-scout": {
+      "tools": {
+        "allow": ["web_search", "github_search", "read"],
+        "deny": ["group:fs", "group:runtime"]
+      }
+    },
+    "context-builder": {
+      "tools": {
+        "allow": ["web_search", "github_search", "group:fs", "read"]
+      }
+    }
+  }
+}

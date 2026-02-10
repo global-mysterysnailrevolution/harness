@@ -213,6 +213,16 @@ if (-not (Test-Path $codexWorkflow)) {
 Write-Host "`n✅ Harness installation complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. Review HARNESS_README.md for usage instructions" -ForegroundColor White
-Write-Host "  2. Configure platform-specific settings if needed" -ForegroundColor White
-Write-Host "  3. Run verification: .\scripts\verify_harness.ps1" -ForegroundColor White
+Write-Host "  2. Configure platform-specific settings:" -ForegroundColor White
+Write-Host "     - OpenClaw: See OPENCLAW_INTEGRATION.md" -ForegroundColor Gray
+Write-Host "     - Cursor: See CURSOR_SUPERVISOR_GUIDE.md" -ForegroundColor Gray
+Write-Host "     - Claude Code: See CLAUDE_SUPERVISOR_GUIDE.md" -ForegroundColor Gray
+Write-Host "     - Gemini: See GEMINI_INTEGRATION.md" -ForegroundColor Gray
+Write-Host "  3. Configure tool broker allowlists in ai/supervisor/allowlists.json" -ForegroundColor White
+Write-Host "  4. Run verification: .\scripts\verify_harness.ps1" -ForegroundColor White
+Write-Host "`nSupervisor Features:" -ForegroundColor Cyan
+Write-Host "  ✓ Tool Broker: Unified MCP tool access" -ForegroundColor Gray
+Write-Host "  ✓ Wheel-Scout: Reality checks before building" -ForegroundColor Gray
+Write-Host "  ✓ Context Builder: On-demand documentation and repo cloning" -ForegroundColor Gray
+Write-Host "  ✓ Multi-Agent Orchestration: Task routing and coordination" -ForegroundColor Gray
 Write-Host "`n"

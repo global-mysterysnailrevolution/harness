@@ -47,5 +47,19 @@
     "enabled": true,
     "command": "scripts/compilers/build_context_pack.py",
     "description": "Compiles context pack at end of session"
+  },
+  "supervisor": {
+    "enabled": true,
+    "toolBroker": {
+      "enabled": true
+    },
+    "wheelScout": {
+      "enabled": true,
+      "requiredForBuild": true
+    },
+    "contextBuilder": {
+      "enabled": true,
+      "preSpawnHook": "scripts/hooks/pre_spawn_context.ps1"
+    }
   }
 }
