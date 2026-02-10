@@ -1,5 +1,11 @@
 # OpenClaw Integration Guide
 
+## ⚠️ Important: Non-MCP Integration
+
+**OpenClaw does not natively support MCP yet.** This integration uses an **OpenClaw Skill wrapper** instead of direct MCP integration.
+
+See `VPS_DEPLOYMENT.md` for deployment instructions and `openclaw/harness_skill.md` for skill API documentation.
+
 ## Overview
 
 OpenClaw provides built-in multi-agent orchestration, per-agent tool allowlists, and browser automation. This integration adds the supervisor layer, tool broker, Wheel-Scout, and dynamic context builder on top.

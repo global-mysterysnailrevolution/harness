@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "description": "VPS-friendly MCP server registry (harness-native, not Cursor-dependent)",
+  "servers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-playwright"],
+      "env": {},
+      "description": "Playwright browser automation MCP server",
+      "toolhive_gateway": null,
+      "enabled": true
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "env": {},
+      "description": "Filesystem operations MCP server",
+      "toolhive_gateway": null,
+      "enabled": true
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      },
+      "description": "GitHub API MCP server",
+      "toolhive_gateway": null,
+      "enabled": false,
+      "note": "Set GITHUB_PERSONAL_ACCESS_TOKEN in env to enable"
+    }
+  },
+  "toolhive": {
+    "enabled": false,
+    "gateway_url": null,
+    "note": "Set TOOLHIVE_GATEWAY_URL environment variable to enable ToolHive integration"
+  },
+  "discovery_order": [
+    "toolhive_gateway",
+    "mcp.servers.json",
+    "cursor_config",
+    "tool_registry_cache"
+  ]
+}

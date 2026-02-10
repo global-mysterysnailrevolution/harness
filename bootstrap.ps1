@@ -366,6 +366,35 @@ if (-not (Test-Path $taskQueuePath)) {
     Write-Host "  ✓ ai\supervisor\task_queue.json" -ForegroundColor Gray
 }
 
+# Create VPS-friendly MCP registry (not Cursor-dependent)
+$mcpRegistryPath = Join-Path $TargetDir "ai\supervisor\mcp.servers.json"
+if (-not (Test-Path $mcpRegistryPath)) {
+    $mcpRegistryContent = Get-Content (Join-Path $ScriptDir "ai\supervisor\mcp.servers.json") -ErrorAction SilentlyContinue
+    if (-not $mcpRegistryContent) {
+        # Create default MCP registry
+        @{
+            version = "1.0"
+            description = "VPS-friendly MCP server registry (harness-native, not Cursor-dependent)"
+            servers = @{
+                playwright = @{
+                    command = "npx"
+                    args = @("-y", "@modelcontextprotocol/server-playwright")
+                    env = @{}
+                    description = "Playwright browser automation MCP server"
+                    enabled = $true
+                }
+            }
+            toolhive = @{
+                enabled = $false
+                gateway_url = $null
+            }
+        } | ConvertTo-Json -Depth 10 | Out-File -FilePath $mcpRegistryPath -Encoding UTF8
+    } else {
+        Copy-Item (Join-Path $ScriptDir "ai\supervisor\mcp.servers.json") $mcpRegistryPath -Force
+    }
+    Write-Host "  ✓ ai\supervisor\mcp.servers.json (VPS-friendly registry)" -ForegroundColor Gray
+}
+
 Write-Host "`n✅ Harness installation complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. Review HARNESS_README.md for usage instructions" -ForegroundColor White

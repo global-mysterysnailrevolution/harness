@@ -19,8 +19,11 @@ class ToolDiscovery:
     
     def _find_mcp_config(self) -> Optional[Path]:
         """Find MCP configuration file"""
-        # Check common locations
+        # Priority order: harness-native registry first (VPS-friendly)
         config_locations = [
+            # Harness-native registry (VPS-friendly, not Cursor-dependent)
+            Path.cwd() / "ai" / "supervisor" / "mcp.servers.json",
+            # Cursor configs (fallback for local development)
             Path.home() / ".cursor" / "User" / "settings.json",
             Path.home() / ".config" / "cursor" / "settings.json",
             Path.cwd() / ".cursor" / "mcp.json",
@@ -34,7 +37,13 @@ class ToolDiscovery:
     
     def discover_tools_from_mcp_servers(self) -> Dict[str, List[Dict]]:
         """Discover all tools from configured MCP servers"""
-        # Try ToolHive gateway first if configured
+        # Discovery order (as per mcp.servers.json config):
+        # 1. ToolHive gateway (if configured)
+        # 2. Harness-native mcp.servers.json (VPS-friendly)
+        # 3. Cursor configs (fallback for local dev)
+        # 4. Tool registry cache
+        
+        # Method 1: Try ToolHive gateway first if configured
         toolhive_gateway = os.getenv("TOOLHIVE_GATEWAY_URL")
         if toolhive_gateway:
             try:
@@ -54,30 +63,69 @@ class ToolDiscovery:
             except Exception as e:
                 print(f"ToolHive gateway discovery failed: {e}, falling back to direct MCP")
         
-        # Fallback: Direct MCP config discovery
-        if not self.mcp_config_path or not self.mcp_config_path.exists():
-            return {}
+        # Method 2: Harness-native mcp.servers.json (VPS-friendly)
+        harness_registry = Path.cwd() / "ai" / "supervisor" / "mcp.servers.json"
+        if harness_registry.exists():
+            try:
+                with open(harness_registry, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                
+                mcp_servers = config.get("servers", {})
+                all_tools = {}
+                
+                for server_name, server_config in mcp_servers.items():
+                    # Skip disabled servers
+                    if not server_config.get("enabled", True):
+                        continue
+                    
+                    tools = self._list_tools_from_server(server_name, server_config)
+                    if tools:
+                        all_tools[server_name] = tools
+                
+                if all_tools:
+                    self.tools_cache = all_tools
+                    return all_tools
+            except Exception as e:
+                print(f"Error reading harness registry: {e}")
         
+        # Method 3: Fallback to Cursor configs (for local development)
+        if self.mcp_config_path and self.mcp_config_path.exists():
+            try:
+                with open(self.mcp_config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            except Exception as e:
+                print(f"Error reading MCP config: {e}")
+                return {}
+            
+            mcp_servers = config.get("mcp", {}).get("servers", {})
+            if not mcp_servers:
+                mcp_servers = config.get("mcp.servers", {})
+            
+            all_tools = {}
+            
+            for server_name, server_config in mcp_servers.items():
+                tools = self._list_tools_from_server(server_name, server_config)
+                if tools:
+                    all_tools[server_name] = tools
+            
+            if all_tools:
+                self.tools_cache = all_tools
+                return all_tools
+        
+        # Method 4: Check tool registry cache
         try:
-            with open(self.mcp_config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+            cache_path = Path.cwd() / "ai" / "supervisor" / "tool_registry.json"
+            if cache_path.exists():
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    registry = json.load(f)
+                    if registry.get("servers"):
+                        self.tools_cache = registry["servers"]
+                        return registry["servers"]
         except Exception as e:
-            print(f"Error reading MCP config: {e}")
-            return {}
+            print(f"Cache lookup failed: {e}")
         
-        mcp_servers = config.get("mcp", {}).get("servers", {})
-        if not mcp_servers:
-            mcp_servers = config.get("mcp.servers", {})
-        
-        all_tools = {}
-        
-        for server_name, server_config in mcp_servers.items():
-            tools = self._list_tools_from_server(server_name, server_config)
-            if tools:
-                all_tools[server_name] = tools
-        
-        self.tools_cache = all_tools
-        return all_tools
+        # No tools discovered
+        return {}
     
     def _get_server_config(self, server_name: str) -> Optional[Dict]:
         """Get server configuration by name"""
