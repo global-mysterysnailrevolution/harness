@@ -34,6 +34,27 @@ class ToolDiscovery:
     
     def discover_tools_from_mcp_servers(self) -> Dict[str, List[Dict]]:
         """Discover all tools from configured MCP servers"""
+        # Try ToolHive gateway first if configured
+        toolhive_gateway = os.getenv("TOOLHIVE_GATEWAY_URL")
+        if toolhive_gateway:
+            try:
+                import requests
+                response = requests.get(
+                    f"{toolhive_gateway}/api/tools",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    # ToolHive returns tools grouped by server
+                    all_tools = {}
+                    for server_name, tools in data.get("servers", {}).items():
+                        all_tools[server_name] = tools.get("tools", [])
+                    self.tools_cache = all_tools
+                    return all_tools
+            except Exception as e:
+                print(f"ToolHive gateway discovery failed: {e}, falling back to direct MCP")
+        
+        # Fallback: Direct MCP config discovery
         if not self.mcp_config_path or not self.mcp_config_path.exists():
             return {}
         
@@ -57,6 +78,23 @@ class ToolDiscovery:
         
         self.tools_cache = all_tools
         return all_tools
+    
+    def _get_server_config(self, server_name: str) -> Optional[Dict]:
+        """Get server configuration by name"""
+        if not self.mcp_config_path or not self.mcp_config_path.exists():
+            return None
+        
+        try:
+            with open(self.mcp_config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            mcp_servers = config.get("mcp", {}).get("servers", {})
+            if not mcp_servers:
+                mcp_servers = config.get("mcp.servers", {})
+            
+            return mcp_servers.get(server_name)
+        except Exception:
+            return None
     
     def _list_tools_from_server(self, server_name: str, server_config: Dict) -> List[Dict]:
         """List tools from a specific MCP server"""
