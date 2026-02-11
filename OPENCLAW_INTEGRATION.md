@@ -13,10 +13,12 @@ OpenClaw provides built-in multi-agent orchestration, per-agent tool allowlists,
 ## What OpenClaw Already Provides
 
 - ✅ Multi-agent orchestration (`sessions_spawn`, `sessions_send`)
-- ✅ Per-agent tool allow/deny (`tools.allow`, `tools.deny`)
+- ✅ Per-agent tool allow/deny (config-driven, exact mechanism varies by OpenClaw version)
 - ✅ Browser automation (`browser` tool with act/screenshot/console)
 - ✅ Process sessions (isolated per-agent)
 - ✅ Skills that load on-demand
+
+**Note**: OpenClaw's tool allow/deny mechanism is config-driven but the exact JSON structure may vary. The harness enforces allowlists at the **broker boundary** regardless of OpenClaw's internal mechanism.
 
 ## What We Add
 

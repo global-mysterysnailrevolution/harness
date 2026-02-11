@@ -94,6 +94,23 @@ Load full tool schemas for direct tool calling.
 
 This skill calls `scripts/broker/tool_broker.py` via Python subprocess and returns JSON results.
 
+**Important**: This is a CLI wrapper, not a magically new OpenClaw tool. To use it, you must:
+
+1. **Register as OpenClaw skill** (recommended):
+   - Copy `harness_skill_wrapper.py` to OpenClaw skills directory
+   - Register in OpenClaw config as executable skill
+   - Agents can then call skill commands
+
+2. **Use restricted exec** (alternative):
+   - Allow only: `python3 scripts/broker/tool_broker.py <command> --args <json>`
+   - Configure OpenClaw exec approval flow
+   - Agents call via restricted exec
+
+3. **Run broker as HTTP service** (cleanest):
+   - Start broker on `localhost:8000`
+   - Agents call via HTTP (no shell access needed)
+   - See `docker-compose.yml` for service mode
+
 ## Security
 
 - All tool calls are filtered by agent allowlists
