@@ -96,12 +96,28 @@ class ToolBroker:
         
         Returns tool result (with secrets redacted)
         """
-        # Check allowlist
+        # Check allowlist - request approval if not allowed
         if agent_id and not self.allowlist_manager.is_tool_allowed(agent_id, tool_id):
-            return {
-                "error": "Tool not allowed for this agent",
-                "tool_id": tool_id
-            }
+            # Check if approval workflow is enabled
+            security_config = Path("ai/supervisor/security_policy.json")
+            approval_required = True
+            if security_config.exists():
+                try:
+                    with open(security_config, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                        approval_required = config.get("tool_approval_required", True)
+                except:
+                    pass
+            
+            if approval_required:
+                # Request approval instead of failing
+                return self.allowlist_manager.request_approval(agent_id, tool_id, args)
+            else:
+                # Fail immediately if approval workflow disabled
+                return {
+                    "error": "Tool not allowed for this agent",
+                    "tool_id": tool_id
+                }
         
         # Security policy checks
         # 1. Rate limit
@@ -248,6 +264,7 @@ def main():
     parser.add_argument("--tool-ids", help="Comma-separated tool IDs (for load command)")
     parser.add_argument("--agent-id", help="Agent ID for allowlist filtering")
     parser.add_argument("--max-results", type=int, default=10, help="Max results for search")
+    parser.add_argument("--reason", help="Rejection reason (for reject command)")
     
     args = parser.parse_args()
     

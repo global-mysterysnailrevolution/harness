@@ -41,6 +41,7 @@
   },
   "forge_approval_required": true,
   "secret_attach_approval_required": true,
+  "tool_approval_required": true,
   "log_redaction": true,
   "artifact_retention_days": 7,
   "max_artifact_size_mb": 100
