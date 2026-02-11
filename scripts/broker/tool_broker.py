@@ -256,7 +256,7 @@ class ToolBroker:
 def main():
     """CLI interface for tool broker"""
     parser = argparse.ArgumentParser(description="MCP Tool Broker")
-    parser.add_argument("command", choices=["search", "describe", "call", "load"],
+    parser.add_argument("command", choices=["search", "describe", "call", "load", "pending", "approve", "reject"],
                        help="Command to execute")
     parser.add_argument("--query", help="Search query (for search command)")
     parser.add_argument("--tool-id", help="Tool ID (for describe/call/load commands)")
@@ -313,6 +313,36 @@ def main():
         tool_ids = [tid.strip() for tid in args.tool_ids.split(",")]
         tools = broker.load_tools(tool_ids, args.agent_id)
         print(json.dumps(tools, indent=2))
+    
+    elif args.command == "pending":
+        pending = broker.allowlist_manager.get_pending_approvals()
+        if pending:
+            print(json.dumps(pending, indent=2))
+        else:
+            print(json.dumps([], indent=2))
+    
+    elif args.command == "approve":
+        if not args.tool_id:
+            print("Error: --tool-id (used as request-id) required for approve command")
+            return
+        
+        success = broker.allowlist_manager.approve_request(args.tool_id)
+        if success:
+            print(json.dumps({"status": "approved", "request_id": args.tool_id}, indent=2))
+        else:
+            print(json.dumps({"error": "Request not found or already processed", "request_id": args.tool_id}, indent=2))
+    
+    elif args.command == "reject":
+        if not args.tool_id:
+            print("Error: --tool-id (used as request-id) required for reject command")
+            return
+        
+        reason = args.reason or "Rejected by user"
+        success = broker.allowlist_manager.reject_request(args.tool_id, reason)
+        if success:
+            print(json.dumps({"status": "rejected", "request_id": args.tool_id, "reason": reason}, indent=2))
+        else:
+            print(json.dumps({"error": "Request not found or already processed", "request_id": args.tool_id}, indent=2))
 
 if __name__ == "__main__":
     main()

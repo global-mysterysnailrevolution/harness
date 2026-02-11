@@ -150,6 +150,8 @@ If skill wrapper not available, use restricted `exec`:
 
 **Security**: Broker enforces allowlists, rate limits, argument validation, and budget checks at boundary.
 
+**Approval Workflow**: When a tool isn't allowlisted, broker returns `approval_required` instead of failing. Review with `python3 scripts/broker/tool_broker.py pending` and approve/reject as needed. See `APPROVAL_WORKFLOW.md` for details.
+
 ## Wheel-Scout Integration
 
 Wheel-Scout runs as OpenClaw agent with restricted tools:
