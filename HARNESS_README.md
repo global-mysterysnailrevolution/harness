@@ -22,6 +22,7 @@ The installer will:
 - Install platform integration files
 - Set up safety guardrails
 - Initialize Git if needed (with backup)
+- **OpenClaw (optional):** Prompt for token and apply hardening (memory flash, Learning Loop, guardrails)
 
 ### Verification
 
@@ -41,7 +42,7 @@ The harness includes a **supervisor system** that orchestrates multiple agents w
 - **Specialized Context**: Each sub-agent receives context tailored to their role
 
 See platform-specific guides:
-- [OpenClaw Integration](OPENCLAW_INTEGRATION.md)
+- [OpenClaw Integration](OPENCLAW_INTEGRATION.md) - Setup: `python scripts/openclaw_setup/apply_openclaw_hardening.py` ([OPENCLAW_SETUP_AGENT.md](OPENCLAW_SETUP_AGENT.md))
 - [Cursor Supervisor Guide](CURSOR_SUPERVISOR_GUIDE.md)
 - [Claude Supervisor Guide](CLAUDE_SUPERVISOR_GUIDE.md)
 - [Gemini Integration](GEMINI_INTEGRATION.md)

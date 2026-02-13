@@ -5,7 +5,9 @@
 param(
     [switch]$Force,
     [switch]$SkipGit,
-    [string]$WSLPath = ""
+    [switch]$SkipOpenClaw,
+    [string]$WSLPath = "",
+    [string]$OpenClawToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -88,6 +90,8 @@ $dirs = @(
     "scripts\hooks",
     "scripts\broker",
     "scripts\supervisor",
+    "scripts\openclaw_setup",
+    "scripts\qmd",
     ".cursor",
     ".claude\agents",
     ".claude\hooks",
@@ -156,12 +160,35 @@ $scripts = @(
 
 foreach ($script in $scripts) {
     $scriptPath = Join-Path $TargetDir $script
-    $scriptDir = Split-Path -Parent $scriptPath
-    if (-not (Test-Path $scriptDir)) {
-        New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
+    $scriptParent = Split-Path -Parent $scriptPath
+    if (-not (Test-Path $scriptParent)) {
+        New-Item -ItemType Directory -Path $scriptParent -Force | Out-Null
     }
-    # Placeholder - will be created in next steps
+    # Copy from template if exists
+    $srcScript = Join-Path $ScriptDir $script
+    if (Test-Path $srcScript) {
+        Copy-Item $srcScript $scriptPath -Force
+    }
     Write-Host "  ✓ $script" -ForegroundColor Gray
+}
+
+# Copy OpenClaw setup scripts
+$openclawScripts = @(
+    "scripts\openclaw_setup\apply_openclaw_hardening.py",
+    "scripts\openclaw_setup\bootstrap_openclaw.ps1",
+    "scripts\run_openclaw_setup.ps1",
+    "scripts\qmd\qmd.ps1",
+    "scripts\qmd\start_qmd_mcp.ps1"
+)
+foreach ($script in $openclawScripts) {
+    $srcScript = Join-Path $ScriptDir $script
+    if (Test-Path $srcScript) {
+        $destPath = Join-Path $TargetDir $script
+        $destDir = Split-Path -Parent $destPath
+        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+        Copy-Item $srcScript $destPath -Force
+        Write-Host "  ✓ $script" -ForegroundColor Gray
+    }
 }
 
 # Initialize git if needed
@@ -374,7 +401,7 @@ if (-not (Test-Path $mcpRegistryPath)) {
         # Create default MCP registry
         @{
             version = "1.0"
-            description = "VPS-friendly MCP server registry (harness-native, not Cursor-dependent)"
+            description = 'VPS-friendly MCP server registry'
             servers = @{
                 playwright = @{
                     command = "npx"
@@ -395,6 +422,16 @@ if (-not (Test-Path $mcpRegistryPath)) {
     Write-Host "  ✓ ai\supervisor\mcp.servers.json (VPS-friendly registry)" -ForegroundColor Gray
 }
 
+# OpenClaw setup (optional)
+$openclawSetupDone = $false
+if (-not $SkipOpenClaw) {
+    Write-Host "`n🔧 OpenClaw setup..." -ForegroundColor Cyan
+    $bootstrapOpenClaw = Join-Path $TargetDir "scripts\openclaw_setup\bootstrap_openclaw.ps1"
+    if (Test-Path $bootstrapOpenClaw) {
+        $openclawSetupDone = & $bootstrapOpenClaw -TargetDir $TargetDir -OpenClawToken $OpenClawToken
+    }
+}
+
 Write-Host "`n✅ Harness installation complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. Review HARNESS_README.md for usage instructions" -ForegroundColor White
@@ -405,9 +442,14 @@ Write-Host "     - Claude Code: See CLAUDE_SUPERVISOR_GUIDE.md" -ForegroundColor
 Write-Host "     - Gemini: See GEMINI_INTEGRATION.md" -ForegroundColor Gray
 Write-Host "  3. Configure tool broker allowlists in ai/supervisor/allowlists.json" -ForegroundColor White
 Write-Host "  4. Run verification: .\scripts\verify_harness.ps1" -ForegroundColor White
+if ($openclawSetupDone) {
+    Write-Host "  5. Restart OpenClaw gateway to apply config changes" -ForegroundColor White
+} else {
+    Write-Host "  5. OpenClaw: Run python scripts/openclaw_setup/apply_openclaw_hardening.py to configure hardening" -ForegroundColor Gray
+}
 Write-Host "`nSupervisor Features:" -ForegroundColor Cyan
 Write-Host "  ✓ Tool Broker: Unified MCP tool access" -ForegroundColor Gray
 Write-Host "  ✓ Wheel-Scout: Reality checks before building" -ForegroundColor Gray
 Write-Host "  ✓ Context Builder: On-demand documentation and repo cloning" -ForegroundColor Gray
 Write-Host "  ✓ Multi-Agent Orchestration: Task routing and coordination" -ForegroundColor Gray
-Write-Host "`n"
+Write-Host ""

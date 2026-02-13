@@ -1,0 +1,35 @@
+---
+description: When user asks to set up, harden, or configure OpenClaw/Clawbot, run the setup agent
+globs:
+alwaysApply: false
+---
+
+# OpenClaw Setup Agent
+
+When the user asks to:
+- "set up OpenClaw"
+- "harden OpenClaw" / "harden Clawbot"
+- "configure OpenClaw settings"
+- "apply OpenClaw hardening"
+
+**Run the setup script:**
+
+```powershell
+# Local OpenClaw
+python scripts/openclaw_setup/apply_openclaw_hardening.py
+
+# VPS Docker (example paths)
+python scripts/openclaw_setup/apply_openclaw_hardening.py --config-path /docker/openclaw-kx9d/data/.openclaw/openclaw.json --workspace-path /docker/openclaw-kx9d/data/.openclaw/workspace
+```
+
+Or use the wrapper:
+```powershell
+.\scripts\run_openclaw_setup.ps1
+.\scripts\run_openclaw_setup.ps1 -VpsHost root@100.124.123.68 -ConfigPath /docker/openclaw-kx9d/data/.openclaw/openclaw.json -WorkspacePath /docker/openclaw-kx9d/data/.openclaw/workspace
+```
+
+**After running:** Remind user to restart OpenClaw (`docker compose restart` or `openclaw gateway restart`).
+
+**What it configures:** Memory flash, session memory search, Learning Loop in AGENTS.md, guardrails (no secrets, no untrusted memory writes), hybrid search, browser node mode.
+
+See `OPENCLAW_SETUP_AGENT.md` and `openclaw/setup_agent_skill.md` for full docs.

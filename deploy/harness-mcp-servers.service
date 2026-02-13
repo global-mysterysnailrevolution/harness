@@ -1,0 +1,16 @@
+[Unit]
+Description=Harness MCP Stdio-to-HTTP Bridges
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/harness/scripts
+ExecStart=/opt/harness/scripts/run_mcp_servers.sh
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+EnvironmentFile=-/opt/harness/.env
+
+[Install]
+WantedBy=multi-user.target

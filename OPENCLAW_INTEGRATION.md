@@ -28,6 +28,27 @@ OpenClaw provides built-in multi-agent orchestration, per-agent tool allowlists,
 - **Context Builder**: On-demand documentation and repo cloning
 - **Dynamic Context**: Specialized context per agent
 
+## Automated Setup (Bootstrap + Setup Agent)
+
+**During bootstrap:** Run `.\bootstrap.ps1` and choose "Set up OpenClaw?" when prompted. Enter your OpenClaw token (API key or pairing code) to configure hardening automatically.
+
+**Manual setup:** Run the setup script to apply optimal settings and hardening:
+
+```powershell
+python scripts/openclaw_setup/apply_openclaw_hardening.py
+```
+
+Or use the wrapper for local or remote (VPS):
+
+```powershell
+.\scripts\run_openclaw_setup.ps1
+.\scripts\run_openclaw_setup.ps1 -VpsHost user@vps -ConfigPath /docker/openclaw-kx9d/data/.openclaw/openclaw.json
+```
+
+**What it configures:** Memory flash, session memory search, Learning Loop in AGENTS.md, guardrails (no secrets, no untrusted memory writes), hybrid search, browser node mode.
+
+See [OPENCLAW_SETUP_AGENT.md](OPENCLAW_SETUP_AGENT.md) and [openclaw/setup_agent_skill.md](openclaw/setup_agent_skill.md).
+
 ## Configuration
 
 ### Supervisor Config

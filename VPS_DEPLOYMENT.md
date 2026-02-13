@@ -38,6 +38,17 @@ Before deploying the harness on a Hostinger VPS with OpenClaw, ensure these bloc
 
 **See**: `ai/supervisor/mcp.servers.json` for example configuration.
 
+### MCP Servers on VPS
+
+Run MCP bridges on the host so OpenClaw (in Docker) can use filesystem, memory, GitHub tools:
+
+```bash
+cd /opt/harness/scripts
+MCP_BIND=0.0.0.0 ./run_mcp_servers.sh
+```
+
+Or install as systemd service: see **[MCP_VPS_SETUP.md](MCP_VPS_SETUP.md)**.
+
 ### ⚠️ Blocker C: PowerShell Requirement (CHOOSE ONE)
 
 **Problem**: Harness assumes `pwsh` on Linux for verification/demo/workers.
