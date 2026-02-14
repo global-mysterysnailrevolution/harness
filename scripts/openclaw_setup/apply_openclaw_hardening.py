@@ -99,23 +99,37 @@ def patch_config(config_path: Path) -> None:
 
 
 def patch_qmd_mcp(config_path: Path, mcp_base_url: str = "http://127.0.0.1:8181") -> None:
-    """Add QMD MCP server to OpenClaw config. Run start_qmd_mcp.ps1 before using."""
+    """
+    Add QMD MCP server to OpenClaw config.
+    NOTE: OpenClaw does not have a built-in 'mcp-integration' plugin.
+    MCP tools are configured via skills, not plugins.entries.
+    This function writes a skill config hint and removes any invalid plugin entry.
+    """
     with open(config_path) as f:
         cfg = json.load(f)
 
-    plugins = cfg.setdefault("plugins", {})
-    entries = plugins.setdefault("entries", {})
-    mcp = entries.setdefault("mcp-integration", {"enabled": True, "config": {"enabled": True, "servers": {}}})
-    servers = mcp.setdefault("config", {}).setdefault("servers", {})
-    servers["qmd"] = {
+    # REMOVE invalid mcp-integration plugin entry if it exists
+    # (OpenClaw validates all plugin IDs must be installed; this one doesn't exist)
+    plugins = cfg.get("plugins", {})
+    entries = plugins.get("entries", {})
+    if "mcp-integration" in entries:
+        del entries["mcp-integration"]
+        print("[OK] Removed invalid mcp-integration plugin entry")
+
+    # Write MCP server config as a skill entry instead
+    skills = cfg.setdefault("skills", {})
+    skill_entries = skills.setdefault("entries", {})
+    skill_entries["qmd"] = {
         "enabled": True,
-        "transport": "http",
-        "url": f"{mcp_base_url.rstrip('/')}/mcp",
+        "env": {
+            "QMD_MCP_URL": f"{mcp_base_url.rstrip('/')}/mcp",
+        },
     }
 
     with open(config_path, "w") as f:
         json.dump(cfg, f, indent=2)
-    print(f"[OK] Added QMD MCP server to {config_path} (url: {mcp_base_url}/mcp)")
+    print(f"[OK] Added QMD as skill entry in {config_path} (url: {mcp_base_url}/mcp)")
+    print("     Install QMD MCP skill in workspace/skills/qmd/ for OpenClaw to discover it.")
 
 
 def append_learning_loop(agents_md_path: Path) -> bool:
@@ -138,8 +152,7 @@ def tighten_permissions(config_dir: Path, workspace_path: Path) -> None:
     if platform.system() == "Windows":
         print("[WARN] Permission tightening skipped on Windows (chmod not applicable)")
         return
-    # Could run: chmod 700 workspace_path, chmod 600 config_path
-        print("[OK] Run manually if on Linux: chmod 700 workspace, chmod 600 openclaw.json")
+    print("[OK] Run manually if on Linux: chmod 700 workspace, chmod 600 openclaw.json")
 
 
 def main() -> int:
