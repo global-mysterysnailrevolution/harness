@@ -28,6 +28,9 @@ Desktop.ini
 *.log
 logs/
 
+# WhatsApp transcripts (runtime data)
+whatsapp-transcripts/
+
 # Environment files
 .env
 .env.local

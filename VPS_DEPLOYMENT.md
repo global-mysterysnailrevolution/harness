@@ -49,6 +49,10 @@ MCP_BIND=0.0.0.0 ./run_mcp_servers.sh
 
 Or install as systemd service: see **[MCP_VPS_SETUP.md](MCP_VPS_SETUP.md)**.
 
+### Prompt-Only Setup (No Manual Scripts)
+
+Set up everything by **sending a prompt** (WhatsApp, portal, or API). See **[PROMPT_ONLY_SETUP.md](PROMPT_ONLY_SETUP.md)**.
+
 ### ⚠️ Blocker C: PowerShell Requirement (CHOOSE ONE)
 
 **Problem**: Harness assumes `pwsh` on Linux for verification/demo/workers.
