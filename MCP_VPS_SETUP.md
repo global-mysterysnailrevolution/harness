@@ -51,41 +51,18 @@ systemctl status harness-mcp-servers
 
 ### 6. Configure OpenClaw
 
-Patch OpenClaw config to add MCP servers:
+**Important**: Do NOT add `mcp-integration` to `plugins.entries` — this is an invalid plugin ID that will crash the gateway. MCP servers are accessed via skills, not plugins.
+
+The OpenClaw agent accesses MCP tools through its built-in memory, web search/fetch, and exec capabilities. The `memory-core` plugin (bundled, loads by default) provides file-backed memory tools. External MCP servers on ports 8101-8104 are available to the agent via HTTP from inside the Docker container at `http://172.18.0.1:<port>/mcp`.
+
+To restart OpenClaw after config changes:
 
 ```bash
-# Edit openclaw.json (Docker path)
-nano /docker/openclaw-kx9d/data/.openclaw/openclaw.json
-```
+# Validate config first
+python3 /opt/harness/scripts/openclaw_setup/config_guard.py validate \
+  /docker/openclaw-kx9d/data/.openclaw/openclaw.json
 
-Add under `plugins.entries.mcp-integration.config.servers`:
-
-```json
-"filesystem": {
-  "enabled": true,
-  "transport": "http",
-  "url": "http://172.18.0.1:8101/mcp"
-},
-"everything": {
-  "enabled": true,
-  "transport": "http",
-  "url": "http://172.18.0.1:8102/mcp"
-},
-"memory": {
-  "enabled": true,
-  "transport": "http",
-  "url": "http://172.18.0.1:8104/mcp"
-},
-"github": {
-  "enabled": true,
-  "transport": "http",
-  "url": "http://172.18.0.1:8103/mcp"
-}
-```
-
-Then restart OpenClaw:
-
-```bash
+# Then restart
 docker restart openclaw-kx9d-openclaw-1
 ```
 
@@ -150,4 +127,4 @@ ufw reload
 | OpenClaw can't connect | Ensure `MCP_BIND=0.0.0.0` and OpenClaw uses `172.18.0.1` (host from Docker's view). |
 | Port already in use | `kill $(cat /tmp/mcp-bridges/mcp-*.pid)` then restart. |
 | GitHub not working | Set `GITHUB_PERSONAL_ACCESS_TOKEN` in `/opt/harness/.env`. |
-| MCP plugin not loading | Install openclaw-mcp-plugin in OpenClaw extensions. See MCP_AND_SKILLS_SETUP.md. |
+| `plugin not found` crash | Never add `mcp-integration` to plugins.entries. Use `openclaw plugins list` to see valid IDs. |

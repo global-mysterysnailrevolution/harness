@@ -49,8 +49,8 @@ class ConfigGuard:
 
     # Keys that should never be overwritten during merge (user-specific data)
     PRESERVE_KEYS = {
-        "channels", "gateway.auth", "gateway.remote", "meta", "wizard",
-        "identity", "gateway.controlUi",
+        "channels", "gateway.auth", "gateway.remote", "gateway.controlUi",
+        "gateway.port", "meta", "wizard", "identity",
     }
 
     def __init__(

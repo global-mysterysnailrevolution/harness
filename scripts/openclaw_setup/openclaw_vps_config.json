@@ -1,5 +1,5 @@
 {
-  "_comment": "Golden config template for VPS OpenClaw. Merged into existing config by apply_openclaw_hardening.py. Keys under 'channels', 'gateway.auth', 'gateway.remote', 'meta', 'wizard' are preserved from existing config and NOT overwritten.",
+  "_comment": "Golden config template for VPS OpenClaw (v2026.2.x). Merged into existing config by apply_openclaw_hardening.py. Keys under 'channels', 'gateway.auth', 'gateway.remote', 'gateway.controlUi', 'meta', 'wizard' are preserved from existing config and NOT overwritten. Model names use aliases (OpenClaw doctor normalizes to these). NEVER add 'params' blocks to model configs — GPT-5.2 does not support 'temperature'.",
 
   "browser": {
     "headless": true,
@@ -17,11 +17,11 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openai/gpt-5.2",
+        "primary": "ChatGPT 5.2",
         "fallbacks": [
-          "anthropic/claude-sonnet-4-5",
-          "google/gemini-3-flash-preview",
-          "xai/grok-4-1-fast-reasoning"
+          "Claude Sonnet 4.5",
+          "Gemini 3 Flash Preview",
+          "Grok 4.1 Fast Reasoning"
         ]
       },
       "models": {
@@ -83,6 +83,7 @@
 
   "gateway": {
     "mode": "local",
+    "bind": "lan",
     "nodes": {
       "browser": {
         "mode": "auto"

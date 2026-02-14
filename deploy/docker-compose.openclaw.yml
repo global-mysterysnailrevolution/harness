@@ -1,0 +1,27 @@
+# OpenClaw VPS Docker Compose template.
+#
+# SECURITY: Ports are bound to TAILSCALE_IP only. Never use 0.0.0.0.
+# Set TAILSCALE_IP in your .env file to your Tailscale IP (e.g. 100.124.123.68).
+#
+# Usage:
+#   cd /docker/openclaw-kx9d
+#   docker compose -f docker-compose.yml up -d
+#
+# This is a REFERENCE template. The actual docker-compose.yml lives at
+# /docker/openclaw-kx9d/docker-compose.yml on the VPS.
+
+services:
+  openclaw:
+    image: ghcr.io/hostinger/hvps-openclaw:latest
+    init: true
+    entrypoint: ["/data/custom-entrypoint.sh"]
+    ports:
+      # Bind to Tailscale IP only — NEVER 0.0.0.0
+      - "${TAILSCALE_IP:-127.0.0.1}:${PORT:-50606}:${PORT:-50606}"
+      - "${TAILSCALE_IP:-127.0.0.1}:18789:63362"
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+      - ./data/linuxbrew:/home/linuxbrew

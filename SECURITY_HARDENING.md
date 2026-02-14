@@ -129,20 +129,81 @@ proposal = forge.propose_server(
 forge.approve(proposal["id"], approved_by="human", smoke_test_result={...})
 ```
 
-## 6. Network Boundary
+## 6. Network Boundary — Docker + Tailscale Hardening
 
-### Binding
+### Principle: Three-Layer Defense-in-Depth
 
-- ToolHive: `localhost:8080` or private Docker network
-- Broker: `localhost:8000` (if running as service)
-- OpenClaw: Public UI/API only if needed
+Docker bypasses UFW via its own iptables chains. A single misconfigured port binding (`0.0.0.0:18789` instead of `100.124.123.68:18789`) exposes the OpenClaw gateway — and with it, WhatsApp, the agent, and all connected tools — to the public internet. We use three independent layers:
 
-### Firewall
+| Layer | What it does | Survives Docker restart? |
+|-------|-------------|------------------------|
+| **Docker port binding** | Bind to Tailscale IP only in `docker-compose.yml` | Yes (compose config) |
+| **DOCKER-USER iptables** | DROP non-Tailscale traffic to Docker ports | Needs `/etc/iptables/rules.v4` |
+| **UFW rules** | Restrict ports to `tailscale0` interface | Yes (ufw persistent) |
 
-- Block all egress except:
-  - ToolHive gateway (if external)
-  - Approved API endpoints
-  - DNS
+### Docker Compose Port Binding
+
+Always bind Docker-published ports to the Tailscale IP, never `0.0.0.0`:
+
+```yaml
+ports:
+  # CORRECT: Tailscale-only
+  - "100.124.123.68:18789:63362"
+  
+  # WRONG: Exposed to all interfaces including public internet
+  # - "18789:63362"
+```
+
+### DOCKER-USER iptables Rules
+
+```bash
+iptables -F DOCKER-USER
+iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+iptables -A DOCKER-USER -p tcp --dport 18789 -s 100.64.0.0/10 -j RETURN  # Tailscale
+iptables -A DOCKER-USER -p tcp --dport 50606 -s 100.64.0.0/10 -j RETURN  # Tailscale
+iptables -A DOCKER-USER -s 172.16.0.0/12 -j RETURN                        # Docker nets
+iptables -A DOCKER-USER -s 127.0.0.0/8 -j RETURN                          # Localhost
+iptables -A DOCKER-USER -p tcp --dport 18789 -j DROP                       # Drop all else
+iptables -A DOCKER-USER -p tcp --dport 50606 -j DROP                       # Drop all else
+iptables -A DOCKER-USER -j RETURN                                          # Pass other traffic
+
+# Persist
+iptables-save > /etc/iptables/rules.v4
+```
+
+### UFW Rules
+
+```bash
+ufw allow in on tailscale0 to any port 22 proto tcp
+ufw allow in on tailscale0 to any port 18789 proto tcp comment 'OpenClaw Gateway (Tailscale only)'
+ufw allow in on tailscale0 to any port 50606 proto tcp
+```
+
+### Verification
+
+```bash
+# Check port bindings (should show Tailscale IP, not 0.0.0.0)
+ss -tlnp | grep -E '18789|50606'
+
+# Check DOCKER-USER chain
+iptables -L DOCKER-USER -n --line-numbers
+
+# Check UFW
+ufw status | grep -E '18789|50606|22'
+
+# Test public non-access (should fail/timeout)
+curl -m 5 http://<public-ip>:18789 2>&1 || echo "GOOD: not publicly accessible"
+```
+
+### Binding Summary
+
+| Port | Service | Binding | Access |
+|------|---------|---------|--------|
+| 18789 | OpenClaw Gateway WS | Tailscale IP only | Tailscale VPN |
+| 50606 | Hostinger panel | Tailscale IP only | Tailscale VPN |
+| 8101-8104 | MCP servers | Docker internal + localhost | Container-to-host |
+| 22 | SSH | Tailscale interface | Tailscale VPN |
+| 80, 443 | Web | All interfaces | Public (if needed) |
 
 ## 7. Artifact Hygiene
 
@@ -174,6 +235,28 @@ All broker calls include `agent_id` parameter for:
 - Budget tracking
 - Audit logging
 
+## 9. OpenClaw Config Safety
+
+### ConfigGuard
+
+All OpenClaw config changes should go through `ConfigGuard` (`scripts/openclaw_setup/config_guard.py`):
+
+- **Validates** plugin IDs against known set (prevents crash-causing `"plugin not found"` errors)
+- **Validates** enum values (gateway.mode, compaction.mode, tools.profile, etc.)
+- **Backs up** config before every write (timestamped `.guard-bak.*` files)
+- **Health-checks** the Docker container after changes
+- **Auto-rolls back** if the container crashes
+
+### Known Config Pitfalls
+
+| Pitfall | Impact | Prevention |
+|---------|--------|-----------|
+| Unknown plugin ID in `plugins.entries` | Gateway crash, WhatsApp dies | ConfigGuard validates against `openclaw plugins list` |
+| `params.temperature` on GPT-5.2 | `400 unsupported parameter` on every message | Don't add `params` to model configs |
+| Invalid `contextPruning.maxTokens` | Gateway won't start | Use only documented keys |
+| `gateway.mode` unset | Gateway won't start | Always set to `local` for VPS |
+| `python` binary not found | Agent exec commands fail | Custom entrypoint creates symlink |
+
 ## Implementation Checklist
 
 - [x] Single choke point (broker with skill wrapper)
@@ -183,17 +266,13 @@ All broker calls include `agent_id` parameter for:
 - [x] Deterministic registry (`mcp.servers.json`)
 - [x] Log redaction (secrets redacted at boundary)
 - [x] Artifact hygiene (bounded storage)
+- [x] Docker port isolation (Tailscale-only binding)
+- [x] DOCKER-USER iptables rules (defense-in-depth)
+- [x] UFW firewall rules (Tailscale interface restriction)
+- [x] ConfigGuard validation + auto-rollback
+- [x] Custom entrypoint (python symlink persistence)
 - [ ] ToolHive gateway setup (Docker Compose)
-- [ ] Network firewall rules
 - [ ] Broker HTTP service (optional, for localhost access)
-
-## Next Steps
-
-1. **Set up ToolHive**: `docker-compose up -d toolhive`
-2. **Configure security policy**: Edit `ai/supervisor/security_policy.json`
-3. **Test approval workflow**: Propose → Smoke test → Approve
-4. **Enable forge approval**: Set `forge_approval_required: true` in security policy
-5. **Configure budgets**: Set per-agent limits in security policy
 
 ## References
 
