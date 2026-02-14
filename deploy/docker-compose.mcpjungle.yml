@@ -1,0 +1,31 @@
+# MCPJungle gateway for harness MCP server management.
+# Replaces mcp_stdio_to_http_bridge.js + run_mcp_servers.sh.
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.mcpjungle.yml up -d
+#   # Then register servers:
+#   bash scripts/vps/register_mcp_servers.sh
+
+services:
+  mcpjungle:
+    image: mcpjungle/mcpjungle:latest
+    container_name: harness-mcpjungle
+    restart: unless-stopped
+    ports:
+      - "${MCPJUNGLE_PORT:-8000}:8000"
+    volumes:
+      - mcpjungle-data:/data
+      # Mount harness ai/ dir so filesystem MCP server can access it
+      - ${HARNESS_DIR:-/opt/harness}/ai:/harness/ai:ro
+    environment:
+      - MCPJUNGLE_MODE=${MCPJUNGLE_MODE:-development}
+      # In production: set MCPJUNGLE_MODE=production for auth + HTTPS
+    networks:
+      - harness-net
+
+networks:
+  harness-net:
+    driver: bridge
+
+volumes:
+  mcpjungle-data:

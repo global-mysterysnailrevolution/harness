@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "description": "Thresholds and scanner config for the tool vetting pipeline",
+  "max_critical": 0,
+  "max_high": 2,
+  "max_medium": 10,
+  "max_secrets": 0,
+  "max_malware": 0,
+  "max_injection_signals": 1,
+  "auto_reject_on_malware": true,
+  "auto_reject_on_critical": true,
+  "scanners_enabled": {
+    "trivy": true,
+    "gitleaks": true,
+    "clamav": true,
+    "npm_audit": true,
+    "pip_audit": true,
+    "semgrep": true,
+    "prompt_injection": true
+  }
+}

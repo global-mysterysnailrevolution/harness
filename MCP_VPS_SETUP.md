@@ -2,6 +2,8 @@
 
 Run MCP servers on your VPS so OpenClaw (in Docker) can use filesystem, memory, GitHub, and other MCP tools.
 
+**Config-driven:** When `ai/supervisor/mcp_bridges.json` exists, add new MCP servers by editing that file. The config watcher (cron every 5 min) starts any new bridges without restarting existing ones.
+
 ## Quick Start
 
 ### 1. SSH to VPS
@@ -86,6 +88,25 @@ Then restart OpenClaw:
 ```bash
 docker restart openclaw-kx9d-openclaw-1
 ```
+
+## Adding New MCP Servers (Config-Driven)
+
+Edit `ai/supervisor/mcp_bridges.json`:
+
+```json
+{
+  "bridges": {
+    "my-new-server": {
+      "port": 8105,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-my-server", "${HARNESS_DIR}/ai"],
+      "enabled": true
+    }
+  }
+}
+```
+
+The config watcher (cron every 5 min) will start it. No restart of existing bridges.
 
 ## Environment Variables
 

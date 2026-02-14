@@ -125,12 +125,40 @@ Approvals are stored in:
 - `ai/supervisor/pending_approvals.json` - Pending requests
 - `ai/supervisor/allowlists.json` - Updated when approved
 
+## Tool Vetting Gate (Gate A)
+
+New MCP server proposals now require **vetting** before approval. When you call `propose_server()` with a `source_path`, the vetting pipeline runs automatically:
+
+1. Trivy (vulns + SBOM), Gitleaks (secrets), ClamAV, npm audit, pip-audit, Semgrep, LLM Guard (prompt injection)
+2. Results saved as `<id>_VETTING.md`, `<id>_FINDINGS.json`, `<id>_SBOM.json` in `ai/supervisor/forge_approvals/`
+3. `approve()` **blocks** if vetting hasn't run or failed (unless `--override-vetting`)
+
+```bash
+# Propose + auto-vet
+python3 scripts/broker/tool_broker.py propose \
+  --server-name my-server --source npm_package \
+  --source-id @example/server --source-path /path/to/code
+
+# Review vetting report
+python3 scripts/broker/tool_vetting.py report --proposal-id <id>
+
+# Approve (only if vetting passed/warned)
+python3 scripts/broker/tool_broker.py approve --tool-id <id> --agent-id admin
+
+# Override failed vetting (with justification)
+python3 scripts/broker/tool_broker.py approve --tool-id <id> --agent-id admin --override-vetting
+```
+
+See [TOOL_VETTING_PIPELINE.md](./TOOL_VETTING_PIPELINE.md) for full details.
+
 ## Security Considerations
 
 1. **Approval is required by default** - Set `tool_approval_required: false` only in dev
-2. **Approvals are persistent** - Once approved, tool stays in allowlist
-3. **Review before approving** - Check `args` in pending request
-4. **Audit trail** - All approvals/rejections logged with timestamps
+2. **Vetting is mandatory** - `approve()` blocks without a passing vet (override available with justification)
+3. **Approvals are persistent** - Once approved, tool stays in allowlist
+4. **Review before approving** - Check vetting report, not just `args`
+5. **Audit trail** - All approvals/rejections/vetting results logged with timestamps
+6. **Runtime audit** - Every `call_tool` logged to `ai/supervisor/audit_log.jsonl` with action classification
 
 ## Example Workflow
 
@@ -165,6 +193,7 @@ python3 scripts/broker/tool_broker.py reject --request-id <id> --reason "Reason 
 
 ## References
 
+- [Tool Vetting Pipeline](./TOOL_VETTING_PIPELINE.md) - Full Gate A + Gate B documentation
 - [Security Hardening](./SECURITY_HARDENING.md)
 - [Tool Broker Guide](./TOOL_BROKER_GUIDE.md)
 - [VPS Deployment](./VPS_DEPLOYMENT.md)

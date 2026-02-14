@@ -81,6 +81,15 @@ Requires `harness-setup-trigger` service running.
 
 If the OpenClaw agent has an HTTP/fetch tool, it can POST to the setup API when the user says "set up" with a token. See `openclaw/setup_trigger_skill.md`.
 
+## Setup Runs Once (No Restarts on Every Prompt)
+
+Setup runs **only** when:
+
+- **First time:** No `ai/setup_complete.flag` exists, and you send a setup prompt
+- **Explicit reconfigure:** You say "reconfigure", "force setup", "run setup", or "run setup again"
+
+Normal prompts do **not** trigger setup. No restarts on every message.
+
 ## What Gets Run
 
 When a setup trigger is found, `scripts/vps/setup_all.sh` runs:
@@ -89,13 +98,24 @@ When a setup trigger is found, `scripts/vps/setup_all.sh` runs:
 2. Save token to `.env`
 3. Apply OpenClaw hardening (`apply_openclaw_hardening.py`)
 4. Start MCP servers (if not already running)
-5. Restart OpenClaw container
+5. **Restart OpenClaw only if config actually changed** (otherwise skipped)
+6. Create `ai/setup_complete.flag`
+
+## Dynamic Adaptation (No Manual Steps)
+
+When you add new MCP servers, skills, or features:
+
+- **MCP:** Add entries to `ai/supervisor/mcp_bridges.json`. The config watcher (runs every 5 min) starts any new bridges. Existing ones are not restarted.
+- **OpenClaw config:** If `openclaw.json` changes, the config watcher restarts OpenClaw once.
+- **Skills/features:** Add them to the harness repo; `git pull` during setup picks them up. Use "reconfigure" to force a fresh setup.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
 | Setup never runs | Check cron: `grep harness /var/log/syslog` or `tail /var/log/harness-setup.log` |
+| Setup runs on every prompt | Ensure `ai/setup_complete.flag` exists. Use "reconfigure" only when you want to re-run. |
 | WhatsApp messages not in feed | Run `python3 scripts/whatsapp_monitor.py` manually. Set `OPENCLAW_CONTAINER` and `SESSIONS_FILE` for your deployment. |
 | Token not extracted | Include token in message: "Token: sk-xxx" or "sk-ant-xxx" |
 | MCP servers not starting | `systemctl status harness-mcp-servers`; ensure `MCP_BIND=0.0.0.0` in `.env` |
+| New MCP not picked up | Add to `ai/supervisor/mcp_bridges.json`. Config watcher runs every 5 min; or run `python3 scripts/vps/config_watcher.py` manually. |

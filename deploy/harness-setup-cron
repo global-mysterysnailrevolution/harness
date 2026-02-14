@@ -1,6 +1,9 @@
 # Harness setup trigger - run every minute
 # Install: sudo cp /opt/harness/deploy/harness-setup-cron /etc/cron.d/harness-setup-cron && sudo chmod 644 /etc/cron.d/harness-setup-cron
-# Checks execute queue and message feed for setup prompts, runs setup_all.sh
+# - whatsapp_monitor: syncs OpenClaw sessions to message feed
+# - setup_trigger: runs setup_all.sh only on first-time or explicit "reconfigure"/"force setup"
+# - config_watcher: starts new MCP bridges, restarts OpenClaw only when config changed
 
 * * * * * root cd /opt/harness && /usr/bin/python3 scripts/whatsapp_monitor.py >> /var/log/harness-monitor.log 2>&1
 * * * * * root cd /opt/harness && /usr/bin/python3 scripts/vps/setup_trigger.py >> /var/log/harness-setup.log 2>&1
+*/5 * * * * root cd /opt/harness && /usr/bin/python3 scripts/vps/config_watcher.py >> /var/log/harness-config.log 2>&1

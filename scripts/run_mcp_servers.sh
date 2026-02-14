@@ -2,6 +2,7 @@
 # Run MCP stdio-to-HTTP bridges for OpenClaw on VPS
 # Usage: ./run_mcp_servers.sh
 # Env: load from /opt/harness/.env (MCP_BEARER_TOKEN, MCP_HTTPS_*, MCP_BIND, GITHUB_PERSONAL_ACCESS_TOKEN)
+# If ai/supervisor/mcp_bridges.json exists, uses config-driven mode (add entries there to add MCP servers).
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,6 +10,11 @@ HARNESS_DIR="$(dirname "$SCRIPT_DIR")"
 ALLOWED_FS="${HARNESS_DIR}/ai"
 
 [ -f "${HARNESS_DIR}/.env" ] && set -a && source "${HARNESS_DIR}/.env" && set +a
+
+# Prefer config-driven mode when mcp_bridges.json exists
+if [[ -f "${HARNESS_DIR}/ai/supervisor/mcp_bridges.json" ]]; then
+  exec "$SCRIPT_DIR/run_mcp_from_config.sh"
+fi
 
 export NODE_PATH="${NODE_PATH:-}"
 mkdir -p /tmp/mcp-bridges

@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "Security policy for broker boundary enforcement",
+  "version": "2.0",
+  "description": "Security policy for broker boundary enforcement (Gate B runtime policy)",
   "rate_limits": {
     "default": {
       "max_calls": 1000,
@@ -44,5 +44,22 @@
   "tool_approval_required": true,
   "log_redaction": true,
   "artifact_retention_days": 7,
-  "max_artifact_size_mb": 100
+  "max_artifact_size_mb": 100,
+  "action_classification": {
+    "description": "Gate B: classify each tool call and gate dangerous actions",
+    "dangerous_action_classes": ["exec", "credential", "network"],
+    "require_approval_for_dangerous": false,
+    "log_all_actions": true
+  },
+  "audit_log": {
+    "enabled": true,
+    "path": "ai/supervisor/audit_log.jsonl",
+    "max_size_mb": 50,
+    "retention_days": 30
+  },
+  "gateways": {
+    "description": "Tool call routing priority: mcpjungle -> toolhive -> direct",
+    "mcpjungle_url_env": "MCPJUNGLE_GATEWAY_URL",
+    "toolhive_url_env": "TOOLHIVE_GATEWAY_URL"
+  }
 }

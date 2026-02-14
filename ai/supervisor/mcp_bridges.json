@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "MCP stdio-to-HTTP bridges for OpenClaw. Add entries here; config watcher starts them.",
+  "bridges": {
+    "filesystem": {
+      "port": 8101,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HARNESS_DIR}/ai"],
+      "enabled": true
+    },
+    "everything": {
+      "port": 8102,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "enabled": true
+    },
+    "memory": {
+      "port": 8104,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "enabled": true
+    },
+    "github": {
+      "port": 8103,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "enabled": false,
+      "note": "Set GITHUB_PERSONAL_ACCESS_TOKEN to enable"
+    }
+  }
+}

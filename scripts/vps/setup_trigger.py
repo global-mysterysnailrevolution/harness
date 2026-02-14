@@ -24,11 +24,15 @@ FEED_FILE = TRANSCRIPTS_DIR / "message_feed.json"
 SETUP_REQUESTS_DIR = HARNESS_DIR / "ai" / "setup_requests"
 PROCESSED_FILE = HARNESS_DIR / "ai" / "setup_processed.json"
 SETUP_SCRIPT = HARNESS_DIR / "scripts" / "vps" / "setup_all.sh"
+SETUP_FLAG = HARNESS_DIR / "ai" / "setup_complete.flag"
 
 TOKEN_PATTERN = re.compile(
     r"(sk-ant-[a-zA-Z0-9\-]+|sk-proj-[a-zA-Z0-9\-]+|sk-[a-zA-Z0-9\-]{20,})"
 )
+# First-time: any of these triggers setup
 SETUP_KEYWORDS = ("set up", "setup", "configure", "configure harness", "openclaw token", "harness token")
+# Force: run even if setup was already done
+FORCE_KEYWORDS = ("reconfigure", "force setup", "run setup", "run setup again", "re-run setup")
 
 
 def load_json(path: Path, default):
@@ -55,13 +59,25 @@ def is_setup_trigger(text: str) -> bool:
     return any(kw in t for kw in SETUP_KEYWORDS)
 
 
-def run_setup(token: str = "") -> bool:
+def should_run_setup(text: str) -> bool:
+    """Run setup only if: (1) first time (no flag), or (2) explicit force keywords."""
+    t = text.lower().strip()
+    if any(kw in t for kw in FORCE_KEYWORDS):
+        return True
+    if not SETUP_FLAG.exists():
+        return any(kw in t for kw in SETUP_KEYWORDS)
+    return False
+
+
+def run_setup(token: str = "", force: bool = False) -> bool:
     if not SETUP_SCRIPT.exists():
         return False
     try:
         cmd = [str(SETUP_SCRIPT)]
         if token:
             cmd.extend(["--token", token])
+        if force:
+            cmd.append("--force")
         result = subprocess.run(
             cmd,
             cwd=str(HARNESS_DIR),
@@ -80,10 +96,11 @@ def process_execute_queue() -> str | None:
     pending = queue.get("pending", [])
     for i, entry in enumerate(pending):
         cmd = (entry.get("command") or entry.get("text") or "").strip()
-        if not is_setup_trigger(cmd):
+        if not should_run_setup(cmd):
             continue
         token = extract_token(cmd)
-        if run_setup(token or ""):
+        force = any(kw in cmd.lower() for kw in FORCE_KEYWORDS)
+        if run_setup(token or "", force=force):
             pending.pop(i)
             queue["pending"] = pending
             save_json(EXECUTE_QUEUE, queue)
@@ -97,13 +114,14 @@ def process_feed() -> str | None:
     messages = feed.get("messages", [])
     for m in reversed(messages):
         content = (m.get("content") or "").strip()
-        if not is_setup_trigger(content):
+        if not should_run_setup(content):
             continue
         msg_id = f"{m.get('session_id','')}_{m.get('index',0)}"
         if msg_id in processed:
             continue
         token = extract_token(content)
-        if run_setup(token or ""):
+        force = any(kw in content.lower() for kw in FORCE_KEYWORDS)
+        if run_setup(token or "", force=force):
             processed.add(msg_id)
             save_json(PROCESSED_FILE, {"ids": list(processed)})
             return msg_id
@@ -116,7 +134,8 @@ def process_setup_requests_dir() -> str | None:
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
             token = data.get("token", "") or extract_token(data.get("message", ""))
-            if run_setup(token):
+            force = data.get("force", False)
+            if run_setup(token, force=force):
                 f.unlink()
                 return f.stem
         except (json.JSONDecodeError, OSError):

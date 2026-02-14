@@ -1,14 +1,27 @@
 #!/usr/bin/env python3
 """
 MCP Forge Approval System
-Implements hard safety gate: no new executable code without approval
+Implements hard safety gate: no new executable code without approval.
+
+Vetting is mandatory: propose_server() triggers the vetting pipeline
+and approve() blocks unless vetting has passed (or been overridden).
 """
 
 import json
 import hashlib
+import sys
 from pathlib import Path
 from typing import Dict, Optional, List
 from datetime import datetime
+
+# Import vetting engine (same package)
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from tool_vetting import run_vetting, VettingReport
+except ImportError:
+    run_vetting = None  # type: ignore
+    VettingReport = None  # type: ignore
+
 
 class ForgeApproval:
     """Manages approval workflow for new MCP server installations"""
@@ -20,15 +33,19 @@ class ForgeApproval:
     def propose_server(
         self,
         server_name: str,
-        source: str,  # "docker_image", "github_repo", "npm_package"
+        source: str,  # "docker_image", "github_repo", "npm_package", "openapi"
         source_id: str,  # image name, repo URL, package name
         version: Optional[str] = None,
         digest: Optional[str] = None,
         tools: Optional[List[str]] = None,
         secrets_required: Optional[List[str]] = None,
-        proposed_by: str = "system"
+        proposed_by: str = "system",
+        source_path: Optional[str] = None,
     ) -> Dict:
-        """Propose a new MCP server installation"""
+        """
+        Propose a new MCP server installation.
+        If source_path is provided, vetting runs automatically.
+        """
         
         proposal_id = hashlib.sha256(
             f"{server_name}:{source}:{source_id}:{version}".encode()
@@ -52,7 +69,12 @@ class ForgeApproval:
             "rejected_at": None,
             "rejection_reason": None,
             "smoke_test_result": None,
-            "risk_assessment": None
+            "risk_assessment": None,
+            # Vetting fields
+            "vetting_status": None,   # None | "running" | "pass" | "warn" | "fail"
+            "vetting_verdict": None,
+            "vetting_report_path": None,
+            "source_path": source_path,
         }
         
         # Save proposal
@@ -60,7 +82,71 @@ class ForgeApproval:
         with open(proposal_file, 'w', encoding='utf-8') as f:
             json.dump(proposal, f, indent=2)
         
+        # Auto-vet if source path provided and vetting engine available
+        if source_path and run_vetting is not None:
+            self.vet(proposal_id, source_path, is_image=(source == "docker_image"))
+            # Reload to get updated vetting status
+            proposal = self.get_proposal(proposal_id) or proposal
+        
         return proposal
+    
+    def vet(
+        self,
+        proposal_id: str,
+        target: Optional[str] = None,
+        is_image: bool = False,
+    ) -> Optional[Dict]:
+        """
+        Run vetting pipeline on a proposal. Updates proposal with results.
+        Returns vetting report dict, or None if vetting engine not available.
+        """
+        if run_vetting is None:
+            return None
+        
+        proposal = self.get_proposal(proposal_id)
+        if not proposal:
+            return None
+        
+        vet_target = target or proposal.get("source_path") or proposal.get("source_id", "")
+        if not vet_target:
+            return None
+        
+        # Mark as running
+        proposal["vetting_status"] = "running"
+        self._save_proposal(proposal)
+        
+        # Run vetting
+        report = run_vetting(
+            target=vet_target,
+            proposal_id=proposal_id,
+            is_image=is_image,
+        )
+        artifacts = report.save(self.approval_dir)
+        
+        # Update proposal
+        proposal["vetting_status"] = report.verdict
+        proposal["vetting_verdict"] = {
+            "verdict": report.verdict,
+            "reasons": report.verdict_reasons,
+            "summary": report.summary_counts(),
+        }
+        proposal["vetting_report_path"] = artifacts.get("report")
+        
+        # Auto-reject on fail
+        if report.verdict == "fail":
+            proposal["status"] = "rejected"
+            proposal["rejected_by"] = "vetting_pipeline"
+            proposal["rejected_at"] = datetime.now().isoformat()
+            proposal["rejection_reason"] = "; ".join(report.verdict_reasons)
+        
+        self._save_proposal(proposal)
+        return report.to_dict()
+    
+    def _save_proposal(self, proposal: Dict):
+        """Save proposal to disk."""
+        proposal_file = self.approval_dir / f"{proposal['id']}.json"
+        with open(proposal_file, 'w', encoding='utf-8') as f:
+            json.dump(proposal, f, indent=2)
     
     def get_proposal(self, proposal_id: str) -> Optional[Dict]:
         """Get proposal by ID"""
@@ -86,27 +172,49 @@ class ForgeApproval:
         proposal_id: str,
         approved_by: str,
         smoke_test_result: Optional[Dict] = None,
-        risk_assessment: Optional[str] = None
-    ) -> bool:
-        """Approve a proposal (requires human action)"""
+        risk_assessment: Optional[str] = None,
+        override_vetting: bool = False,
+    ) -> Dict:
+        """
+        Approve a proposal (requires human action).
+        Blocks if vetting hasn't run or failed, unless override_vetting=True.
+        Returns dict with status and any error message.
+        """
         proposal = self.get_proposal(proposal_id)
         if not proposal:
-            return False
+            return {"ok": False, "error": "Proposal not found"}
         
         if proposal["status"] != "pending":
-            return False
+            return {"ok": False, "error": f"Proposal status is '{proposal['status']}', not 'pending'"}
+        
+        # Gate: require vetting to have passed (or warn with override)
+        vetting_status = proposal.get("vetting_status")
+        if vetting_status is None and not override_vetting:
+            return {
+                "ok": False,
+                "error": "Vetting has not been run. Use 'vet' command first, or pass override_vetting=True.",
+            }
+        if vetting_status == "fail" and not override_vetting:
+            return {
+                "ok": False,
+                "error": f"Vetting FAILED: {proposal.get('vetting_verdict', {}).get('reasons', [])}. "
+                         "Fix issues and re-vet, or pass override_vetting=True with justification.",
+            }
         
         proposal["status"] = "approved"
         proposal["approved_by"] = approved_by
         proposal["approved_at"] = datetime.now().isoformat()
         proposal["smoke_test_result"] = smoke_test_result
         proposal["risk_assessment"] = risk_assessment
+        if override_vetting and vetting_status in (None, "fail"):
+            proposal["vetting_override"] = {
+                "overridden_by": approved_by,
+                "at": datetime.now().isoformat(),
+                "original_status": vetting_status,
+            }
         
-        proposal_file = self.approval_dir / f"{proposal_id}.json"
-        with open(proposal_file, 'w', encoding='utf-8') as f:
-            json.dump(proposal, f, indent=2)
-        
-        return True
+        self._save_proposal(proposal)
+        return {"ok": True, "proposal_id": proposal_id, "vetting_status": vetting_status}
     
     def reject(
         self,
@@ -127,10 +235,7 @@ class ForgeApproval:
         proposal["rejected_at"] = datetime.now().isoformat()
         proposal["rejection_reason"] = reason
         
-        proposal_file = self.approval_dir / f"{proposal_id}.json"
-        with open(proposal_file, 'w', encoding='utf-8') as f:
-            json.dump(proposal, f, indent=2)
-        
+        self._save_proposal(proposal)
         return True
     
     def is_approved(self, server_name: str, source: str, source_id: str, version: Optional[str] = None) -> bool:

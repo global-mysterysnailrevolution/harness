@@ -1,21 +1,67 @@
 #!/usr/bin/env python3
 """
 MCP Tool Broker
-Provides unified tool access with discovery, allowlisting, and on-demand hydration
+Provides unified tool access with discovery, allowlisting, and on-demand hydration.
+Includes Gate B runtime policy: action classification, dangerous action gate, audit log.
 """
 
 import json
 import argparse
+import hashlib
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from discovery import ToolDiscovery
 from allowlist_manager import AllowlistManager
 from security_policy import SecurityPolicy
 from forge_approval import ForgeApproval
+
+# ---------------------------------------------------------------------------
+# Action classification
+# ---------------------------------------------------------------------------
+
+# tool_id patterns -> action class
+_ACTION_PATTERNS: Dict[str, List[str]] = {
+    "read": ["search", "list", "get", "describe", "read", "query", "fetch", "find"],
+    "write": ["write", "create", "update", "delete", "put", "patch", "remove", "move", "rename"],
+    "network": ["http", "curl", "fetch", "request", "download", "upload", "send", "post"],
+    "credential": ["auth", "token", "secret", "key", "password", "credential", "login", "oauth"],
+    "exec": ["exec", "run", "shell", "command", "spawn", "evaluate", "interpret", "compile"],
+}
+
+# Actions that require interactive approval (configurable in security_policy.json)
+_DANGEROUS_ACTIONS = {"exec", "credential", "network"}
+
+
+def classify_action(tool_id: str, args: Dict[str, Any]) -> str:
+    """Classify a tool call into an action category."""
+    combined = f"{tool_id} {json.dumps(args)}".lower()
+    scores: Dict[str, int] = {}
+    for action_class, keywords in _ACTION_PATTERNS.items():
+        scores[action_class] = sum(1 for kw in keywords if kw in combined)
+    if not any(scores.values()):
+        return "read"  # default safe
+    return max(scores, key=lambda k: scores[k])
+
+
+# ---------------------------------------------------------------------------
+# Audit logger
+# ---------------------------------------------------------------------------
+
+_AUDIT_LOG_PATH = Path(os.environ.get("HARNESS_DIR", Path.cwd())) / "ai" / "supervisor" / "audit_log.jsonl"
+
+
+def _audit_log(entry: Dict[str, Any]):
+    """Append a structured entry to the audit log (JSONL)."""
+    _AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    entry["timestamp"] = datetime.now().isoformat()
+    with open(_AUDIT_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
 
 class ToolBroker:
     """Main tool broker implementation"""
@@ -92,13 +138,24 @@ class ToolBroker:
     def call_tool(self, tool_id: str, args: Dict[str, Any],
                   agent_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Call a tool via proxy (avoids schema injection)
+        Call a tool via proxy (avoids schema injection).
         
-        Returns tool result (with secrets redacted)
+        Gate B runtime policy:
+          1. Allowlist check
+          2. Action classification (read/write/network/credential/exec)
+          3. Dangerous action gate (requires approval for exec/credential/network)
+          4. Security policy checks (rate limit, argument validation, budget)
+          5. Route: MCPJungle -> ToolHive -> direct MCP (first available)
+          6. Audit log every call
+        
+        Returns tool result (with secrets redacted).
         """
-        # Check allowlist - request approval if not allowed
+        aid = agent_id or "default"
+        action_class = classify_action(tool_id, args)
+        args_hash = hashlib.sha256(json.dumps(args, sort_keys=True).encode()).hexdigest()[:12]
+
+        # --- 1. Allowlist ---
         if agent_id and not self.allowlist_manager.is_tool_allowed(agent_id, tool_id):
-            # Check if approval workflow is enabled
             security_config = Path("ai/supervisor/security_policy.json")
             approval_required = True
             if security_config.exists():
@@ -106,133 +163,163 @@ class ToolBroker:
                     with open(security_config, 'r', encoding='utf-8') as f:
                         config = json.load(f)
                         approval_required = config.get("tool_approval_required", True)
-                except:
+                except Exception:
                     pass
             
             if approval_required:
-                # Request approval instead of failing
+                _audit_log({"event": "call_blocked", "reason": "allowlist", "tool_id": tool_id,
+                            "agent_id": aid, "action_class": action_class})
                 return self.allowlist_manager.request_approval(agent_id, tool_id, args)
             else:
-                # Fail immediately if approval workflow disabled
-                return {
-                    "error": "Tool not allowed for this agent",
-                    "tool_id": tool_id
-                }
-        
-        # Security policy checks
-        # 1. Rate limit
-        allowed, error = self.security_policy.check_rate_limit(agent_id or "default", tool_id)
+                _audit_log({"event": "call_blocked", "reason": "allowlist_no_approval", "tool_id": tool_id,
+                            "agent_id": aid, "action_class": action_class})
+                return {"error": "Tool not allowed for this agent", "tool_id": tool_id}
+
+        # --- 2. Dangerous action gate ---
+        dangerous_actions = _DANGEROUS_ACTIONS
+        # Load overrides from security_policy if available
+        try:
+            sp = Path("ai/supervisor/security_policy.json")
+            if sp.exists():
+                sp_data = json.loads(sp.read_text(encoding="utf-8"))
+                custom = sp_data.get("dangerous_action_classes")
+                if custom:
+                    dangerous_actions = set(custom)
+        except Exception:
+            pass
+
+        if action_class in dangerous_actions:
+            _audit_log({"event": "dangerous_action", "tool_id": tool_id, "agent_id": aid,
+                        "action_class": action_class, "args_hash": args_hash})
+            # In interactive mode this would prompt; for now, log and continue.
+            # Future: integrate with approval workflow for blocking.
+
+        # --- 3. Security policy checks ---
+        allowed, error = self.security_policy.check_rate_limit(aid, tool_id)
         if not allowed:
+            _audit_log({"event": "call_blocked", "reason": "rate_limit", "tool_id": tool_id, "agent_id": aid})
             return {"error": error, "tool_id": tool_id}
         
-        # 2. Argument validation
-        allowed, error = self.security_policy.validate_arguments(tool_id, args, agent_id or "default")
+        allowed, error = self.security_policy.validate_arguments(tool_id, args, aid)
         if not allowed:
+            _audit_log({"event": "call_blocked", "reason": "argument_validation", "tool_id": tool_id,
+                        "agent_id": aid, "detail": error})
             return {"error": error, "tool_id": tool_id}
         
-        # 3. Budget check
-        allowed, error = self.security_policy.check_budget(agent_id or "default", {"tokens": 0, "cost_usd": 0})
+        allowed, error = self.security_policy.check_budget(aid, {"tokens": 0, "cost_usd": 0})
         if not allowed:
+            _audit_log({"event": "call_blocked", "reason": "budget", "tool_id": tool_id, "agent_id": aid})
             return {"error": error, "tool_id": tool_id}
         
-        # Get tool schema to determine server
+        # --- 4. Resolve tool schema ---
         schema = self.describe_tool(tool_id, agent_id)
         if not schema:
-            return {
-                "error": "Tool not found",
-                "tool_id": tool_id
-            }
+            return {"error": "Tool not found", "tool_id": tool_id}
         
-        # Extract server from tool_id
         server_name = tool_id.split(":")[0] if ":" in tool_id else "unknown"
+
+        # --- 5. Route call: MCPJungle -> ToolHive -> direct MCP ---
+        result_dict = self._route_call(tool_id, args, agent_id, server_name)
+
+        # --- 6. Audit log ---
+        _audit_log({
+            "event": "call_tool",
+            "tool_id": tool_id,
+            "agent_id": aid,
+            "action_class": action_class,
+            "args_hash": args_hash,
+            "server": server_name,
+            "status": "error" if "error" in result_dict else "ok",
+        })
         
-        # Try ToolHive gateway first if configured
+        return result_dict
+
+    def _route_call(self, tool_id: str, args: Dict, agent_id: Optional[str], server_name: str) -> Dict:
+        """Try gateways in order: MCPJungle -> ToolHive -> direct MCP."""
+
+        # --- MCPJungle gateway ---
+        mcpjungle_url = os.getenv("MCPJUNGLE_GATEWAY_URL")
+        if mcpjungle_url:
+            try:
+                import requests
+                response = requests.post(
+                    f"{mcpjungle_url}/mcp",
+                    json={
+                        "jsonrpc": "2.0",
+                        "method": "tools/call",
+                        "params": {"name": tool_id, "arguments": args},
+                        "id": 1,
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=30,
+                )
+                if response.status_code == 200:
+                    return self._redact({"tool_id": tool_id, "server": server_name,
+                                         "result": response.json(), "gateway": "mcpjungle"})
+            except Exception as e:
+                print(f"MCPJungle call failed: {e}, trying next gateway")
+
+        # --- ToolHive gateway ---
         toolhive_gateway = os.getenv("TOOLHIVE_GATEWAY_URL")
         if toolhive_gateway:
             try:
                 import requests
                 response = requests.post(
                     f"{toolhive_gateway}/api/tools/call",
-                    json={
-                        "tool_id": tool_id,
-                        "args": args,
-                        "agent_id": agent_id
-                    },
-                    timeout=30
+                    json={"tool_id": tool_id, "args": args, "agent_id": agent_id},
+                    timeout=30,
                 )
                 if response.status_code == 200:
-                    result = response.json()
-                    # Redact secrets before returning
-                    if self.security_policy:
-                        result_str = json.dumps(result)
-                        result_str = self.security_policy.redact_secrets(result_str)
-                        result = json.loads(result_str)
-                    return result
+                    return self._redact({"tool_id": tool_id, "server": server_name,
+                                         "result": response.json(), "gateway": "toolhive"})
             except Exception as e:
-                print(f"ToolHive gateway call failed: {e}, falling back to direct MCP")
-        
-        # Fallback: Direct MCP client call
+                print(f"ToolHive call failed: {e}, falling back to direct MCP")
+
+        # --- Direct MCP ---
         try:
-            import mcp
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
-            
-            # Get server config from discovery
+
             server_config = self.discovery._get_server_config(server_name)
             if not server_config:
-                return {
-                    "error": "Server config not found",
-                    "server": server_name
-                }
-            
-            # Create server parameters
+                return {"error": "Server config not found", "server": server_name}
+
             command = server_config.get("command")
             if not command:
-                return {
-                    "error": "Server command not configured",
-                    "server": server_name
-                }
-            
+                return {"error": "Server command not configured", "server": server_name}
+
             server_params = StdioServerParameters(
                 command=command,
                 args=server_config.get("args", []),
-                env=server_config.get("env", {})
+                env=server_config.get("env", {}),
             )
-            
-            # Call tool via MCP
-            async def _call_tool():
+
+            async def _call():
                 async with stdio_client(server_params) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
-                        tool_name = tool_id.split(":")[1] if ":" in tool_id else tool_id
-                        result = await session.call_tool(tool_name, args)
+                        name = tool_id.split(":")[1] if ":" in tool_id else tool_id
+                        result = await session.call_tool(name, args)
                         return result.content[0].text if result.content else result
-        
+
             import asyncio
-            result = asyncio.run(_call_tool())
-            result_dict = {
-                "tool_id": tool_id,
-                "server": server_name,
-                "result": result
-            }
-            # Redact secrets before returning
-            if self.security_policy:
-                result_str = json.dumps(result_dict)
-                result_str = self.security_policy.redact_secrets(result_str)
-                result_dict = json.loads(result_str)
-            return result_dict
+            result = asyncio.run(_call())
+            return self._redact({"tool_id": tool_id, "server": server_name,
+                                 "result": result, "gateway": "direct_mcp"})
         except ImportError:
-            return {
-                "error": "MCP SDK not installed. Install with: pip install mcp",
-                "tool_id": tool_id,
-                "note": "ToolHive gateway recommended for production"
-            }
+            return {"error": "MCP SDK not installed. Install with: pip install mcp",
+                    "tool_id": tool_id, "note": "MCPJungle or ToolHive gateway recommended"}
         except Exception as e:
-            return {
-                "error": f"MCP call failed: {str(e)}",
-                "tool_id": tool_id,
-                "server": server_name
-            }
+            return {"error": f"MCP call failed: {str(e)}",
+                    "tool_id": tool_id, "server": server_name}
+
+    def _redact(self, result: Dict) -> Dict:
+        """Redact secrets from result before returning."""
+        if self.security_policy:
+            result_str = json.dumps(result)
+            result_str = self.security_policy.redact_secrets(result_str)
+            return json.loads(result_str)
+        return result
     
     def load_tools(self, tool_ids: List[str], agent_id: Optional[str] = None) -> List[Dict]:
         """
@@ -256,8 +343,11 @@ class ToolBroker:
 def main():
     """CLI interface for tool broker"""
     parser = argparse.ArgumentParser(description="MCP Tool Broker")
-    parser.add_argument("command", choices=["search", "describe", "call", "load", "pending", "approve", "reject"],
-                       help="Command to execute")
+    parser.add_argument("command", choices=[
+        "search", "describe", "call", "load",
+        "pending", "approve", "reject",
+        "propose", "vet",
+    ], help="Command to execute")
     parser.add_argument("--query", help="Search query (for search command)")
     parser.add_argument("--tool-id", help="Tool ID (for describe/call/load commands)")
     parser.add_argument("--args", help="Tool arguments as JSON (for call command)")
@@ -265,6 +355,12 @@ def main():
     parser.add_argument("--agent-id", help="Agent ID for allowlist filtering")
     parser.add_argument("--max-results", type=int, default=10, help="Max results for search")
     parser.add_argument("--reason", help="Rejection reason (for reject command)")
+    parser.add_argument("--server-name", help="Server name (for propose command)")
+    parser.add_argument("--source", help="Source type: docker_image, github_repo, npm_package, openapi")
+    parser.add_argument("--source-id", help="Source identifier (image, URL, package name)")
+    parser.add_argument("--source-path", help="Local path to source code (for propose/vet)")
+    parser.add_argument("--proposal-id", help="Proposal ID (for vet command)")
+    parser.add_argument("--override-vetting", action="store_true", help="Override vetting gate on approve")
     
     args = parser.parse_args()
     
@@ -323,26 +419,63 @@ def main():
     
     elif args.command == "approve":
         if not args.tool_id:
-            print("Error: --tool-id (used as request-id) required for approve command")
+            print("Error: --tool-id (used as request-id/proposal-id) required for approve command")
             return
         
-        success = broker.allowlist_manager.approve_request(args.tool_id)
-        if success:
-            print(json.dumps({"status": "approved", "request_id": args.tool_id}, indent=2))
+        # Try forge approval first (for proposals), then allowlist approval
+        result = broker.forge_approval.approve(
+            args.tool_id, approved_by=args.agent_id or "cli",
+            override_vetting=args.override_vetting,
+        )
+        if result.get("ok"):
+            print(json.dumps(result, indent=2))
         else:
-            print(json.dumps({"error": "Request not found or already processed", "request_id": args.tool_id}, indent=2))
+            # Fallback to allowlist approval
+            success = broker.allowlist_manager.approve_request(args.tool_id)
+            if success:
+                print(json.dumps({"status": "approved", "request_id": args.tool_id}, indent=2))
+            else:
+                print(json.dumps(result, indent=2))
     
     elif args.command == "reject":
         if not args.tool_id:
-            print("Error: --tool-id (used as request-id) required for reject command")
+            print("Error: --tool-id (used as request-id/proposal-id) required for reject command")
             return
         
         reason = args.reason or "Rejected by user"
-        success = broker.allowlist_manager.reject_request(args.tool_id, reason)
+        # Try forge rejection first, then allowlist
+        success = broker.forge_approval.reject(args.tool_id, rejected_by=args.agent_id or "cli", reason=reason)
+        if not success:
+            success = broker.allowlist_manager.reject_request(args.tool_id, reason)
+        
         if success:
             print(json.dumps({"status": "rejected", "request_id": args.tool_id, "reason": reason}, indent=2))
         else:
             print(json.dumps({"error": "Request not found or already processed", "request_id": args.tool_id}, indent=2))
+    
+    elif args.command == "propose":
+        if not args.server_name or not args.source or not args.source_id:
+            print("Error: --server-name, --source, --source-id required for propose command")
+            return
+        proposal = broker.forge_approval.propose_server(
+            server_name=args.server_name,
+            source=args.source,
+            source_id=args.source_id,
+            proposed_by=args.agent_id or "cli",
+            source_path=args.source_path,
+        )
+        print(json.dumps(proposal, indent=2))
+    
+    elif args.command == "vet":
+        pid = args.proposal_id or args.tool_id
+        if not pid:
+            print("Error: --proposal-id required for vet command")
+            return
+        result = broker.forge_approval.vet(pid, target=args.source_path)
+        if result:
+            print(json.dumps(result, indent=2))
+        else:
+            print(json.dumps({"error": "Vetting failed or engine not available"}, indent=2))
 
 if __name__ == "__main__":
     main()

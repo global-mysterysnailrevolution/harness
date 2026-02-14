@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "gates": {
     "wheel_scout": {
       "enabled": true,
@@ -7,6 +7,16 @@
       "bypass_conditions": ["emergency", "hotfix"],
       "timeout_seconds": 300,
       "description": "Requires landscape report before building new systems"
+    },
+    "tool_vetting": {
+      "enabled": true,
+      "required_for": ["propose_server", "install_tool", "add_mcp_server"],
+      "bypass_conditions": ["override_vetting"],
+      "timeout_seconds": 600,
+      "description": "Gate A: Requires vetting report (Trivy, Gitleaks, LLM Guard, etc.) before approving new tools/servers",
+      "scanners": ["trivy", "gitleaks", "clamav", "npm_audit", "pip_audit", "semgrep", "prompt_injection"],
+      "policy_file": "ai/supervisor/vetting_policy.json",
+      "auto_reject_on": ["malware", "critical_vuln"]
     },
     "budget": {
       "enabled": true,
@@ -25,6 +35,12 @@
         "install package"
       ],
       "description": "Security gates for risky operations"
+    },
+    "runtime_policy": {
+      "enabled": true,
+      "description": "Gate B: Action classification and dangerous action gating on every call_tool",
+      "dangerous_actions": ["exec", "credential", "network"],
+      "audit_log": "ai/supervisor/audit_log.jsonl"
     }
   },
   "gate_history": []
