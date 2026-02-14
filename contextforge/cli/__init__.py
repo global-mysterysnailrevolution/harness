@@ -1,0 +1,1 @@
+"""ContextForge CLI entry point."""

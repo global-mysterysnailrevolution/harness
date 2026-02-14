@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/event.schema.json",
+  "title": "ContextForge Structured Event",
+  "description": "Schema for all structured events emitted by ContextForge components. Events are appended to JSONL logs and streamed to the UI.",
+  "type": "object",
+  "required": ["event_type", "timestamp", "correlation", "component", "payload"],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "run.started", "run.completed", "run.failed",
+        "analysis.started", "analysis.file_scanned", "analysis.completed",
+        "generation.skill_created", "generation.agent_created", "generation.doc_created",
+        "tool.call_started", "tool.call_completed", "tool.call_failed", "tool.call_blocked",
+        "vetting.scan_started", "vetting.scan_completed", "vetting.verdict",
+        "approval.requested", "approval.granted", "approval.denied",
+        "memory.pending_created", "memory.promoted", "memory.rejected",
+        "config.validated", "config.written", "config.rollback",
+        "health.check", "health.degraded", "health.recovered"
+      ],
+      "description": "Event type following component.action naming"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp with timezone"
+    },
+    "correlation": {
+      "type": "object",
+      "required": ["run_id"],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "UUID v4 for the current run/session"
+        },
+        "trace_id": {
+          "type": "string",
+          "description": "Optional trace ID for sub-operations within a run"
+        },
+        "parent_id": {
+          "type": "string",
+          "description": "Parent trace_id for nested operations"
+        },
+        "change_id": {
+          "type": "string",
+          "description": "Links to a specific config/artifact change"
+        },
+        "artifact_id": {
+          "type": "string",
+          "description": "Links to a generated artifact (skill, agent, doc)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "component": {
+      "type": "string",
+      "enum": ["analyzer", "generator", "memory", "security", "events", "ui", "broker", "config_guard", "gateway"],
+      "description": "Which ContextForge component emitted this event"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["debug", "info", "warn", "error", "critical"],
+      "default": "info"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific data. Structure depends on event_type.",
+      "additionalProperties": true
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Agent that triggered or is associated with this event"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Duration in milliseconds (for completed/failed events)"
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "stack": { "type": "string" }
+      },
+      "description": "Error details (for failed events)"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/agent-profile.schema.json",
+  "title": "ContextForge Agent Profile",
+  "description": "Schema for generated specialist agent profiles.",
+  "type": "object",
+  "required": ["id", "name", "role", "provenance", "description", "tools"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "Unique agent identifier (kebab-case)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable agent name"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["planner", "reviewer", "tester", "security", "ops", "specialist"],
+      "description": "Agent role classification"
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["generator", "generator_version", "generated_at", "source_commit"],
+      "properties": {
+        "generator": { "type": "string", "const": "contextforge" },
+        "generator_version": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "source_commit": { "type": "string" },
+        "analysis_hash": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "description": {
+      "type": "string",
+      "description": "When and why to spawn this agent",
+      "maxLength": 500
+    },
+    "system_prompt_file": {
+      "type": "string",
+      "description": "Path to the agent's system prompt markdown file"
+    },
+    "tools": {
+      "type": "object",
+      "required": ["allow"],
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed tools and tool groups"
+        },
+        "deny": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicitly denied tools and groups"
+        }
+      },
+      "additionalProperties": false
+    },
+    "skills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Skill pack IDs this agent should have loaded"
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "max_concurrent": { "type": "integer", "minimum": 1, "default": 1 },
+        "timeout_seconds": { "type": "integer", "minimum": 10, "default": 300 },
+        "max_tokens_per_turn": { "type": "integer" },
+        "requires_approval_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["write", "exec", "network", "credential"]
+          },
+          "description": "Action classes that require human approval for this agent"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

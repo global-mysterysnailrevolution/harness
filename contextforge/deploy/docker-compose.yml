@@ -1,0 +1,24 @@
+# ContextForge sidecar deployment
+# Runs alongside OpenClaw, never as an OpenClaw plugin
+version: "3.8"
+
+services:
+  contextforge-ui:
+    build: ..
+    command: ["python", "-m", "contextforge.cli.contextforge", "ui", "--port", "8900"]
+    ports:
+      - "${TAILSCALE_IP:-127.0.0.1}:8900:8900"
+    volumes:
+      - event-log:/data/events
+      - ../ai/supervisor:/app/ai/supervisor:ro
+    environment:
+      - CONTEXTFORGE_EVENT_LOG=/app/ai/supervisor/contextforge_events.jsonl
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8900/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  event-log:
