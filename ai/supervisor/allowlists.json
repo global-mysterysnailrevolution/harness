@@ -1,8 +1,8 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "default_allowlist": {
-    "servers": [],
-    "tools": []
+    "servers": ["fetch", "brave-search"],
+    "tools": ["fetch:*", "brave-search:*"]
   },
   "agent_profiles": {
     "orchestrator": {
@@ -11,9 +11,9 @@
       "description": "Minimal tools for orchestration"
     },
     "web-runner": {
-      "servers": ["browser", "playwright"],
-      "tools": ["browser.*", "screenshot", "act", "console"],
-      "description": "Browser automation tools only"
+      "servers": ["browser", "playwright", "fetch", "brave-search", "web-adapter"],
+      "tools": ["browser.*", "screenshot", "act", "console", "fetch:*", "brave-search:*", "web-adapter:*"],
+      "description": "Web browsing: fast lane (fetch/search/adapters) + slow lane (browser)"
     },
     "judge": {
       "servers": ["image", "fs"],
@@ -26,14 +26,19 @@
       "description": "Code editing and execution tools"
     },
     "wheel-scout": {
-      "servers": ["web", "github"],
-      "tools": ["web_search", "github_search", "read"],
-      "description": "Research and discovery tools only"
+      "servers": ["web", "github", "fetch", "brave-search"],
+      "tools": ["web_search", "github_search", "read", "fetch:*", "brave-search:*"],
+      "description": "Research and discovery tools (fast lane enabled)"
     },
     "context-builder": {
-      "servers": ["web", "github", "fs"],
-      "tools": ["web_search", "github_clone", "read", "write"],
+      "servers": ["web", "github", "fs", "fetch"],
+      "tools": ["web_search", "github_clone", "read", "write", "fetch:*"],
       "description": "Documentation and repo cloning tools"
+    },
+    "proxmox-manager": {
+      "servers": [],
+      "tools": ["proxmox:*"],
+      "description": "Proxmox VM management via proxmox_tool.py"
     }
   },
   "server_configs": {
@@ -52,6 +57,24 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-playwright"],
       "description": "Playwright MCP server"
+    },
+    "fetch": {
+      "type": "mcp",
+      "command": "python3",
+      "args": ["-m", "mcp_server_fetch"],
+      "description": "Fetch URLs and extract readable content (fast lane)"
+    },
+    "brave-search": {
+      "type": "mcp",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "description": "Brave Search API (fast lane search)"
+    },
+    "web-adapter": {
+      "type": "script",
+      "command": "python3",
+      "args": ["scripts/tools/web_adapter_tool.py"],
+      "description": "Site adapter executor (fast lane for known workflows)"
     }
   }
 }

@@ -15,13 +15,16 @@ services:
     image: ghcr.io/hostinger/hvps-openclaw:latest
     init: true
     entrypoint: ["/data/custom-entrypoint.sh"]
+    command: ["node", "server.mjs"]
     ports:
       # Bind to Tailscale IP only — NEVER 0.0.0.0
       - "${TAILSCALE_IP:-127.0.0.1}:${PORT:-50606}:${PORT:-50606}"
-      - "${TAILSCALE_IP:-127.0.0.1}:18789:63362"
+      - "${TAILSCALE_IP:-127.0.0.1}:18789:18789"
     env_file:
       - .env
+      - ./secrets/proxmox.env
     restart: unless-stopped
     volumes:
       - ./data:/data
       - ./data/linuxbrew:/home/linuxbrew
+      - ./harness:/data/harness:ro

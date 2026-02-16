@@ -490,6 +490,30 @@ iptables -L DOCKER-USER -n  # check if rules survived
 | `group:memory` warning in logs | Cosmetic; `memory-core` plugin is loaded, tools work fine |
 | Config change crashed gateway | Run `python3 config_guard.py rollback /path/to/openclaw.json` |
 | DOCKER-USER rules gone after restart | Re-run the iptables commands, save with `iptables-save` |
+| **"Waiting for this message. This may take a while."** (WhatsApp) | E2E sync issue, not an OpenClaw bug. See [WhatsApp FAQ](https://faq.whatsapp.com/3398056720476987). Wait, check connection, update WhatsApp, or unlink/re-link device (Settings → Linked Devices). |
+
+## OpenClaw Skill CLIs (Gemini, Codex, GitHub)
+
+Skills like `gemini`, `coding-agent`, and `github` show as "✗ missing" when the underlying CLIs are not installed in the container. To enable them:
+
+1. **Apply hardening** (enables `google-gemini-cli-auth` plugin):
+   ```bash
+   python3 scripts/openclaw_setup/apply_openclaw_hardening.py --config-path /docker/openclaw-kx9d/data/.openclaw/openclaw.json
+   ```
+
+2. **Install CLIs inside the container** (run from VPS with harness at `/opt/harness`):
+   ```bash
+   docker exec -i openclaw-kx9d-openclaw-1 bash -s < /opt/harness/scripts/vps/install_openclaw_skill_clis.sh
+   ```
+
+3. **Ensure `custom-entrypoint.sh`** adds `/data/.local/bin` to PATH (see `deploy/custom-entrypoint.sh`).
+
+4. **Restart the container**:
+   ```bash
+   docker restart openclaw-kx9d-openclaw-1
+   ```
+
+**Other useful skills** (install CLIs as needed): `summarize` (URLs, podcasts), `mcporter` (MCP), `session-logs` (session search). GoG (`gog`) requires a separate Go binary — add manually if needed.
 
 ## File Locations
 

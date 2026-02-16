@@ -71,9 +71,7 @@
           }
         }
       },
-      "heartbeat": {
-        "every": "30m"
-      },
+      "heartbeat": {"every": "576h"},
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8

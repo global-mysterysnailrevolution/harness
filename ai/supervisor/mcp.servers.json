@@ -28,6 +28,25 @@
       "toolhive_gateway": null,
       "enabled": false,
       "note": "Set GITHUB_PERSONAL_ACCESS_TOKEN in env to enable"
+    },
+    "fetch": {
+      "command": "python3",
+      "args": ["-m", "mcp_server_fetch"],
+      "env": {},
+      "description": "Fetch URLs and extract readable content (Readability-style markdown). Fast-lane alternative to browser for read-only web tasks.",
+      "toolhive_gateway": null,
+      "enabled": true
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": ""
+      },
+      "description": "Brave Search API - structured web and local search results without opening a browser",
+      "toolhive_gateway": null,
+      "enabled": false,
+      "note": "Set BRAVE_API_KEY in secrets/brave.env to enable (free tier: 2000 queries/month)"
     }
   },
   "toolhive": {

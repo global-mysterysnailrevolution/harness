@@ -35,6 +35,8 @@ whatsapp-transcripts/
 .env
 .env.local
 .env.*.local
+**/IGFETCH_TOKEN.txt
+secrets/
 
 # Node modules (if using Node.js)
 node_modules/
@@ -52,6 +54,14 @@ env/
 
 # Keep directory structure but ignore lock contents
 !ai/_locks/.gitkeep
+
+# One-time debug/key scripts (may contain secrets)
+scripts/vps/key_update.py
+scripts/vps/check_auth*.py
+scripts/vps/fix_auth_profiles.py
+scripts/vps/update_openai_key.py
+scripts/vps/register_keys.sh
+scripts/vps/test_openai_key.sh
 
 # Vendor directory (cloned reference implementations)
 ai/vendor/

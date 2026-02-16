@@ -1,0 +1,31 @@
+{
+  "site": "jsonplaceholder.typicode.com",
+  "description": "Example adapter: create a post on JSONPlaceholder (public test API). Use this as a template for real adapters.",
+  "auth": {
+    "type": "none"
+  },
+  "steps": [
+    {
+      "method": "POST",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "title": "{{title}}",
+        "body": "{{body}}",
+        "userId": 1
+      },
+      "extract": {
+        "post_id": "$.id"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://jsonplaceholder.typicode.com/posts/{{post_id}}",
+      "extract": {
+        "created_title": "$.title"
+      }
+    }
+  ]
+}

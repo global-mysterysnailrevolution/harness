@@ -1,0 +1,18 @@
+[Unit]
+Description=igfetch Instagram Reel fetcher
+After=network.target
+
+[Service]
+Type=simple
+User=igfetch
+WorkingDirectory=/opt/harness/igfetch/app/scripts/reels
+Environment=IGFETCH_BASE=/opt/harness/igfetch
+Environment=IGFETCH_BIND=0.0.0.0
+Environment=IGFETCH_PORT=8787
+EnvironmentFile=-/opt/harness/igfetch/.env
+ExecStart=/usr/bin/node igfetch_server.js
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
