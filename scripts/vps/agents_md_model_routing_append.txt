@@ -1,0 +1,32 @@
+
+### Model Routing
+
+Use the cheapest model that can handle the task. This saves significant cost without sacrificing quality.
+
+- **Skill:** [model_routing_skill.md](/data/harness/openclaw/model_routing_skill.md) -- Full decision rubric and tier definitions
+
+**Quick reference:**
+- **Fast** (Gemini 3 Flash, GPT 5 Mini): status checks, formatting, file listing, boilerplate, log parsing
+- **Standard** (ChatGPT 5.2): coding, debugging, planning, multi-step tool use
+- **Deep** (Claude Sonnet 4.5): security, architecture, high-stakes decisions, nuanced writing
+
+**Rules:**
+- Default to Fast for research/discovery subagents
+- Default to Standard for implementation
+- Escalate to Deep only for security, architecture, or when the user says "think hard"/"deep mode"
+- User overrides always win: "cheap mode" = Fast, "full power" = Deep
+- NEVER use Fast for security analysis, self-update proposals, or credential handling
+
+### Context Packs
+
+Before starting work on a project or module, check if a context pack exists. If not, build one first.
+
+- **Skill:** [context_pack_skill.md](/data/harness/openclaw/context_pack_skill.md) -- How to build, verify, and use context packs
+- **Builder:** `python3 /data/harness/scripts/compilers/build_context_pack.py --scope /path/to/project`
+- **Verifier:** `python3 /data/harness/scripts/compilers/verify_context_pack.py context/scope-name.md`
+
+**Rules:**
+- Always check for existing context packs before re-scanning a codebase
+- Build a context pack for any project you work on more than once
+- Run the verifier -- don't ship incomplete packs
+- Store packs in `context/<scope-name>.md` relative to the project root

@@ -31,6 +31,9 @@
         "openai/gpt-5.2": {
           "alias": "ChatGPT 5.2"
         },
+        "openai/gpt-5-mini": {
+          "alias": "GPT 5 Mini"
+        },
         "google/gemini-3-flash-preview": {
           "alias": "Gemini 3 Flash Preview"
         },
