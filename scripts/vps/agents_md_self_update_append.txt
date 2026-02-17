@@ -1,0 +1,21 @@
+
+### Self-Update Pipeline
+
+You can propose and apply changes to your own host configuration through a secure pipeline.
+
+- **Skill:** [self_update_skill.md](/data/harness/openclaw/self_update_skill.md) -- Full workflow: propose, diff, validate, apply, rollback
+- **Tool:** `python3 /data/harness/scripts/tools/self_update_tool.py <operation> [--args '<json>']`
+
+**Operations:** `propose`, `diff`, `validate`, `apply` (requires approval), `rollback` (requires approval), `status`, `history`
+
+**Rules:**
+- ALWAYS message the user on WhatsApp with a diff summary before applying
+- ALWAYS wait for explicit approval ("approve", "yes", "do it")
+- NEVER apply without approval, even for "small" changes
+- ALWAYS run `validate` before `apply`
+- ALWAYS include health checks for any service you restart
+- If health checks fail after apply, the system auto-rolls back
+
+**Whitelisted destinations:**
+- `/opt/harness/igfetch/`, `/opt/harness/openclaw/`, `/opt/harness/scripts/`, `/opt/harness/adapters/`, `/opt/harness/ai/supervisor/`, `/opt/harness/secrets/`
+- `/etc/systemd/system/igfetch.service` (exact), `/docker/openclaw-kx9d/docker-compose.yml` (exact)

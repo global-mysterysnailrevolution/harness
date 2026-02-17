@@ -65,3 +65,11 @@ scripts/vps/test_openai_key.sh
 
 # Vendor directory (cloned reference implementations)
 ai/vendor/
+
+# Self-update pipeline runtime state
+config_desired/
+config_backups/
+config_applied/
+
+# Site adapters (may contain auth tokens)
+adapters/

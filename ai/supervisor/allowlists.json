@@ -2,7 +2,7 @@
   "version": "1.1",
   "default_allowlist": {
     "servers": ["fetch", "brave-search"],
-    "tools": ["fetch:*", "brave-search:*"]
+    "tools": ["fetch:*", "brave-search:*", "self-update:*"]
   },
   "agent_profiles": {
     "orchestrator": {
@@ -39,6 +39,11 @@
       "servers": [],
       "tools": ["proxmox:*"],
       "description": "Proxmox VM management via proxmox_tool.py"
+    },
+    "self-updater": {
+      "servers": [],
+      "tools": ["self-update:*"],
+      "description": "Self-update pipeline: propose, validate, apply, rollback config changes"
     }
   },
   "server_configs": {
