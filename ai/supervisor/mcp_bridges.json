@@ -26,6 +26,13 @@
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "enabled": false,
       "note": "Set GITHUB_PERSONAL_ACCESS_TOKEN to enable"
+    },
+    "codex": {
+      "port": 8105,
+      "command": "codex",
+      "args": ["mcp-server"],
+      "enabled": true,
+      "note": "Codex CLI MCP server - provides gpt-5.3-codex access"
     }
   }
 }
