@@ -4,7 +4,7 @@ Config watcher: ensures MCP bridges and OpenClaw stay in sync with config.
 Run via cron every 5 min: */5 * * * * cd /opt/harness && python3 scripts/vps/config_watcher.py
 
 - mcp_bridges.json: starts any missing bridges (does not restart existing ones)
-- openclaw.json: restarts OpenClaw only when config actually changed
+- openclaw.json: restarts OpenClaw only when user-controlled config actually changed
 """
 import hashlib
 import json
@@ -19,6 +19,10 @@ OPENCLAW_CONFIG = Path(os.environ.get("OPENCLAW_CONFIG", "/docker/openclaw-kx9d/
 OPENCLAW_CONTAINER = os.environ.get("OPENCLAW_CONTAINER", "openclaw-kx9d-openclaw-1")
 CONFIG_HASH_FILE = HARNESS_DIR / "ai" / "config_hashes.json"
 PID_DIR = Path("/tmp/mcp-bridges")
+
+# Keys that OpenClaw auto-updates on every startup — exclude from hash so we
+# don't trigger a restart just because the process touched its own metadata.
+_OPENCLAW_VOLATILE_KEYS = {"meta", "wizard"}
 
 
 def load_json(path: Path, default):
@@ -35,10 +39,18 @@ def save_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def file_hash(path: Path) -> str | None:
+def config_hash(path: Path) -> str | None:
+    """Hash openclaw.json excluding volatile keys OpenClaw updates on startup."""
     if not path.exists():
         return None
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    # Strip OpenClaw-managed keys so timestamp changes don't trigger restarts
+    stable = {k: v for k, v in data.items() if k not in _OPENCLAW_VOLATILE_KEYS}
+    canonical = json.dumps(stable, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def is_bridge_running(name: str) -> bool:
@@ -99,22 +111,25 @@ def ensure_mcp_bridges() -> int:
 
 
 def maybe_restart_openclaw() -> bool:
-    """Restart OpenClaw only if openclaw.json changed."""
+    """Restart OpenClaw only if user-controlled config changed."""
     if not OPENCLAW_CONFIG.exists():
         return False
-    current = file_hash(OPENCLAW_CONFIG)
+    current = config_hash(OPENCLAW_CONFIG)
     hashes = load_json(CONFIG_HASH_FILE, {})
     prev = hashes.get("openclaw")
     if prev == current:
         return False
     try:
+        # Save the hash BEFORE restarting so the next run sees the post-startup
+        # config (which only differs in volatile keys we already excluded).
+        hashes["openclaw"] = current
+        save_json(CONFIG_HASH_FILE, hashes)
         subprocess.run(
-            ["docker", "restart", OPENCLAW_CONTAINER],
+            ["docker", "compose", "-f", "/docker/openclaw-kx9d/docker-compose.yml",
+             "restart", "openclaw"],
             capture_output=True,
             timeout=30,
         )
-        hashes["openclaw"] = current
-        save_json(CONFIG_HASH_FILE, hashes)
         print(f"[config_watcher] Restarted OpenClaw (config changed)")
         return True
     except (subprocess.TimeoutExpired, FileNotFoundError):
