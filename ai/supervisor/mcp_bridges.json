@@ -33,6 +33,16 @@
       "args": ["mcp-server"],
       "enabled": true,
       "note": "Codex CLI MCP server - provides gpt-5.3-codex access"
+    },
+    "hlos": {
+      "port": 8106,
+      "command": "npx",
+      "args": ["-y", "@hlos/staamp-mcp"],
+      "env": {
+        "HLOS_API_URL": "https://api.hlos.ai"
+      },
+      "enabled": true,
+      "note": "HLOS STAAMP MCP - agent identity, wallet, credential provisioning. Run 'hlos login' on host first."
     }
   }
 }
