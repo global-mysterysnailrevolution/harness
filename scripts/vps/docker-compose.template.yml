@@ -1,0 +1,16 @@
+services:
+  openclaw:
+    image: ghcr.io/hostinger/hvps-openclaw:latest
+    init: true
+    entrypoint: ["/data/custom-entrypoint.sh"]
+    command: ["node", "server.mjs"]
+    ports:
+      - "__TAILSCALE_IP__:${PORT}:${PORT}"
+      - "__TAILSCALE_IP__:18789:18789"
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+      - ./data/linuxbrew:/home/linuxbrew
+      - __HARNESS_DIR__:/data/harness

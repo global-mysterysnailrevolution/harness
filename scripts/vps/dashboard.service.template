@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenClaw Agent Dashboard
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=__DASHBOARD_DIR__
+ExecStart=/usr/bin/node __DASHBOARD_DIR__/server.js
+Restart=on-failure
+RestartSec=5
+Environment=DASHBOARD_PORT=__DASHBOARD_PORT__
+Environment=DASHBOARD_TOKEN=__DASHBOARD_TOKEN__
+Environment=WORKSPACE_DIR=__WORKSPACE_DIR__
+Environment=OPENCLAW_DIR=__OPENCLAW_DIR__
+Environment=OPENCLAW_AGENT=main
+Environment=DASHBOARD_ALLOW_HTTP=true
+
+[Install]
+WantedBy=multi-user.target
