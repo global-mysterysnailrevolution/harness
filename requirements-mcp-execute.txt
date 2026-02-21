@@ -1,0 +1,6 @@
+# MCP server for harness execute requests
+mcp>=1.0.0
+click>=8.0
+uvicorn>=0.30.0
+starlette>=0.38.0
+anyio>=4.0.0

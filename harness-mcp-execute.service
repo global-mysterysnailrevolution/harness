@@ -1,0 +1,15 @@
+[Unit]
+Description=MCP server for harness execute requests (Cursor)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/harness
+Environment=WHATSAPP_TRANSCRIPTS_DIR=/opt/harness/whatsapp-transcripts
+Environment=HOOK_OUTPUT_DIR=/opt/harness/ai/execute_requests
+ExecStart=/usr/bin/python3 -m mcp_execute_requests.server --transport sse --port 8002
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

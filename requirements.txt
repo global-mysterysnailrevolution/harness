@@ -1,0 +1,5 @@
+flask>=2.3.0
+requests>=2.31.0
+weave>=0.1.0
+wandb>=0.15.0
+mcp>=0.1.0

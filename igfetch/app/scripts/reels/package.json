@@ -1,0 +1,19 @@
+{
+  "name": "reels-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local IG reel fetch (Playwright) + keyframes + local whisper glue",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "playwright": "^1.50.0"
+  },
+  "scripts": {
+    "install-browsers": "playwright install chromium",
+    "login": "node igfetch_login.js",
+    "server": "node igfetch_server.js"
+  }
+}

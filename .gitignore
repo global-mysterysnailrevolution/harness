@@ -73,3 +73,28 @@ config_applied/
 
 # Site adapters (may contain auth tokens)
 adapters/
+
+# ──── Additional exclusions ────
+
+# igfetch media (large binary files)
+igfetch/downloads/
+igfetch/frames/
+igfetch/logs/
+
+# MCP certs (private keys)
+.mcp/certs/*.key
+.mcp/certs/*.pem
+
+# Diagnostics runtime data
+diagnostics/
+
+# Runtime state files
+ai/config_hashes.json
+mcp_execute_requests/__pycache__/
+
+# Temporary deploy/patch scripts
+patch_*.py
+remove_*.py
+enable_*.py
+revert_*.py
+check_session.py
