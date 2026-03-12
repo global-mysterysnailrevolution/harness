@@ -86,12 +86,43 @@ For Claude Code (`.mcp.json` or settings):
 3. If API key available in env, make one test call
 4. Report: tools generated, estimated token cost per call, any issues
 
+## Step 6: Security Vetting (Gate A — Required)
+
+After generation and validation, run the Tool Vetting Pipeline before the server
+is activated. This is a hard gate: the server MUST NOT be added to `.mcp.json`
+until vetting passes.
+
+Spawn the `vet-scanner` agent:
+- `target_path`: absolute path to `mcp-servers/{tool}-mcp/`
+- `report_id`: `vet_{YYYYMMDD}_{HHMMSS}_{tool}-mcp`
+- `report_dir`: absolute path to `ai/supervisor/forge_approvals/`
+- `policy`: loaded from `~/.claude/plugins/vetting-policy.json` (or defaults if missing)
+
+Wait for the verdict:
+
+**If PASS:**
+- Proceed to add the server to `.mcp.json`
+- Note: "Vetting passed — server activated."
+
+**If WARN:**
+- Report the warning reasons to the user
+- Ask: "Vetting produced warnings. Review `ai/supervisor/forge_approvals/{id}_VETTING.md`
+  before activating. Activate anyway? (yes/no)"
+- If yes: add to `.mcp.json`; if no: stop (server generated but not activated)
+
+**If FAIL:**
+- Print rejection reasons
+- Do NOT add the server to `.mcp.json`
+- Report: "Vetting FAILED. Server generated but NOT activated. Fix the issues in
+  `mcp-servers/{tool}-mcp/` and re-run `/vet mcp-servers/{tool}-mcp/` to re-evaluate."
+
 ## Output Summary
 
 ```
 Forged: {tool} MCP Server
 Tools: [N] tools from [M] endpoints
 Files: mcp-servers/{tool}-mcp/ (ready to install)
-Config: [show the JSON block to add]
+Vetting: [PASS|WARN|FAIL] — {counts summary}
+Config: [show the JSON block to add — only if PASS or user confirmed WARN]
 Next: Add your API key and run `uvx mcp-servers/{tool}-mcp`
 ```

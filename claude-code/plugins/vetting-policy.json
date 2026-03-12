@@ -1,0 +1,27 @@
+{
+  "_comment": "Tool Vetting Pipeline policy. See ~/.claude/commands/vet.md for documentation.",
+  "version": "1.0",
+  "max_critical": 0,
+  "max_high": 2,
+  "max_medium": 10,
+  "max_low": 999,
+  "max_secrets": 0,
+  "max_malware": 0,
+  "max_injection_signals": 1,
+  "auto_reject_on_malware": true,
+  "auto_reject_on_critical": true,
+  "warn_on_any_high": true,
+  "warn_on_any_injection": true,
+  "require_sbom": false,
+  "scanners_enabled": {
+    "trivy": true,
+    "gitleaks": true,
+    "clamav": true,
+    "npm_audit": true,
+    "pip_audit": true,
+    "semgrep": true,
+    "prompt_injection": true
+  },
+  "allow_skip_on_warn": true,
+  "report_output_dir": "ai/supervisor/forge_approvals"
+}

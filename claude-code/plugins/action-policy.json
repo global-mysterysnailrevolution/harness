@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "version": "1.0",
+
+  "dangerous_action_classes": ["exec", "credential", "network"],
+  "blocked_action_classes": [],
+
+  "classification": {
+    "read":       ["search", "list", "get", "describe", "read", "query", "fetch", "find"],
+    "write":      ["write", "create", "update", "delete", "put", "patch", "remove", "move", "rename"],
+    "network":    ["http", "curl", "fetch", "request", "download", "upload", "send", "post"],
+    "credential": ["auth", "token", "secret", "key", "password", "credential", "login", "oauth"],
+    "exec":       ["exec", "run", "shell", "command", "spawn", "evaluate", "interpret", "compile"]
+  },
+
+  "tool_overrides": {
+    "Bash":        "exec",
+    "Read":        "read",
+    "Edit":        "write",
+    "Write":       "write",
+    "Glob":        "read",
+    "Grep":        "read",
+    "WebFetch":    "network",
+    "WebSearch":   "network",
+    "Skill":       "read",
+    "Task":        "exec",
+    "TodoRead":    "read",
+    "TodoWrite":   "write"
+  },
+
+  "mcp_prefix_patterns": [
+    { "pattern": "mcp__chrome-devtools__*",         "class": "network"     },
+    { "pattern": "mcp__github__create_*",           "class": "write"       },
+    { "pattern": "mcp__github__update_*",           "class": "write"       },
+    { "pattern": "mcp__github__delete_*",           "class": "write"       },
+    { "pattern": "mcp__github__get_*",              "class": "read"        },
+    { "pattern": "mcp__github__list_*",             "class": "read"        },
+    { "pattern": "mcp__github__search_*",           "class": "read"        },
+    { "pattern": "mcp__github__merge_*",            "class": "write"       },
+    { "pattern": "mcp__github__push_*",             "class": "write"       },
+    { "pattern": "mcp__github__fork_*",             "class": "write"       },
+    { "pattern": "mcp__*__authenticate*",           "class": "credential"  },
+    { "pattern": "mcp__*__login*",                  "class": "credential"  },
+    { "pattern": "mcp__*__token*",                  "class": "credential"  },
+    { "pattern": "mcp__*__exec*",                   "class": "exec"        },
+    { "pattern": "mcp__*__run_*",                   "class": "exec"        },
+    { "pattern": "mcp__*__evaluate*",               "class": "exec"        }
+  ],
+
+  "agent_allowlists": {
+    "supervisor": {
+      "tools": ["*"],
+      "action_classes": ["*"]
+    },
+    "implementer": {
+      "tools": ["Bash", "Read", "Edit", "Write", "Glob", "Grep"],
+      "action_classes": ["read", "write", "exec"]
+    },
+    "researcher": {
+      "tools": ["Read", "Glob", "Grep", "WebFetch", "WebSearch"],
+      "action_classes": ["read", "network"]
+    },
+    "wheel-scout": {
+      "tools": ["Read", "Glob", "Grep", "WebFetch", "WebSearch"],
+      "action_classes": ["read", "network"]
+    },
+    "browser": {
+      "tools": ["mcp__chrome-devtools__*"],
+      "action_classes": ["network"]
+    },
+    "memory-scribe": {
+      "tools": ["Read", "Write"],
+      "action_classes": ["read", "write"]
+    },
+    "context-hydrator": {
+      "tools": ["Read", "Glob", "Grep"],
+      "action_classes": ["read"]
+    },
+    "skill-router": {
+      "tools": ["Read"],
+      "action_classes": ["read"]
+    },
+    "tool-broker": {
+      "tools": ["Read"],
+      "action_classes": ["read"]
+    },
+    "forger": {
+      "tools": ["Bash", "Read", "Edit", "Write", "Glob", "Grep", "WebFetch"],
+      "action_classes": ["read", "write", "exec", "network"]
+    },
+    "vet-scanner": {
+      "tools": ["Bash", "Read", "Write", "Glob", "Grep"],
+      "action_classes": ["read", "write", "exec"]
+    },
+    "test-writer": {
+      "tools": ["Read", "Write", "Bash", "Glob", "Grep"],
+      "action_classes": ["read", "write", "exec"]
+    },
+    "log-monitor": {
+      "tools": ["Bash", "Read", "Write", "Glob", "Grep"],
+      "action_classes": ["read", "write", "exec"]
+    },
+    "claude-code": {
+      "tools": ["*"],
+      "action_classes": ["*"]
+    }
+  },
+
+  "log_path": "~/.claude/audit/tool-calls.jsonl",
+  "rotation": {
+    "max_entries": 10000,
+    "max_days": 30
+  }
+}

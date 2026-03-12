@@ -257,20 +257,38 @@ They implement, test, read failures, fix, and retest — repeating until green.
 ```
 Agent(Plan): Design implementation using hydrated context + landscape report
   → Define: files to change, test command, success criteria
+  → Returns: PLAN with fields: files_to_create, files_to_modify, test_command
 
-Agent(implementer): Ralph loop execution
+Agent(implementer): Ralph loop execution              -+  spawn SIMULTANEOUSLY
+Agent(test-writer, background): write tests           -+  (run_in_background: true)
+
+Implementer:
   → MAX_ITERATIONS: 2 (trivial) / 5 (standard) / 7 (complex)
   → TEST_COMMAND: from intake.json or plan
   → SUCCESS_CRITERIA: specific measurable condition
   → Loop: implement → test → analyze → fix → retest
   → Returns: implementation report (DONE/PARTIAL/BLOCKED)
+  → NOTE: a test-writer sidecar is running in parallel.
+     Do NOT write test files unless the sidecar is reported BLOCKED at Phase 6.
+     Focus on implementing source code and making existing tests pass.
 
-If PARTIAL/BLOCKED:
+Test-writer sidecar (run_in_background: true):
+  → Context pack includes: FRAMEWORK, SOURCE_FILES (from plan),
+     TEST_DIR, TEST_CMD, PROJECT_ROOT, path to one existing test file
+  → Reads new/modified source files (waits up to 30s if not yet written)
+  → Studies existing test patterns from the example file
+  → Writes matching test files to the correct test directory
+  → Runs tests, self-corrects authoring errors (up to 3 retries per file)
+  → Marks as skip (not deletes) any test that reveals a source bug
+  → Writes ai/tests/TEST_PLAN.md and ai/tests/COVERAGE_NOTES.md
+  → Returns: test writer report (DONE/PARTIAL/BLOCKED)
+  → If sidecar fails or BLOCKED: non-fatal, noted in Phase 6
+
+If implementer returns PARTIAL/BLOCKED:
   → BLOCKED on external dep → AskUserQuestion to escalate
   → PARTIAL with failures → spawn second implementer with failure context (chained Ralph)
   → PARTIAL but close → fix remaining directly
 ```
-
 #### Multi sub-task (wave execution from Phase 1b)
 
 Execute the decomposition plan wave by wave:
@@ -283,14 +301,19 @@ For each wave in TASK_PLAN:
      → Spawn parallel context-hydrators (one per sub-task) if they need different context
 
   2. EXECUTE WAVE: Spawn all sub-tasks in this wave as PARALLEL agents
-     → Each gets its own implementer (Ralph loop) or researcher as appropriate
+     → Each build sub-task gets its own implementer (Ralph loop)
+     → Each build sub-task also gets a test-writer sidecar (background)
      → Each runs in isolation (worktree for build tasks to avoid conflicts)
      → All launched in a SINGLE message (parallel Agent calls)
 
-     Agent(implementer, worktree): sub-task A  ─┐
-     Agent(implementer, worktree): sub-task B  ├─ parallel (same wave)
-     Agent(implementer, worktree): sub-task C  ─┘
+     Agent(implementer, worktree): sub-task A               -+
+     Agent(test-writer, background): tests for sub-task A   |   parallel (same wave)
+     Agent(implementer, worktree): sub-task B               |
+     Agent(test-writer, background): tests for sub-task B   -+
 
+     Budget note: 2 test-writer sidecars per wave is within the 3-sidecar budget.
+     If a wave has 2+ implementers AND Phase 5e sidecars are also running,
+     defer non-critical Phase 5e sidecars to after the wave completes.
   3. POST-WAVE: Collect all reports
      → Merge worktrees if applicable
      → Compile outputs needed by the next wave
@@ -355,22 +378,57 @@ They run asynchronously alongside the main pipeline and report back when done.
 - If a sidecar fails, it does NOT block the main pipeline
 - Budget: sidecars should be lightweight (haiku/sonnet, not opus)
 - Max 3 concurrent sidecars to avoid budget blowout
+- A build task is executing -- test-writer sidecars are auto-spawned in Phase 5c alongside
+  every implementer. You do not spawn them manually here; they are part of the build pattern.
 
-**Sidecar vs Wave sub-task**: If something MUST complete before the next step,
-it's a wave sub-task (sequential). If it's nice-to-have or supplementary, it's
-a sidecar (background).
+### 5e-ii: Log Monitor Sidecar (Automatic Dev Server Watcher)
 
-### 5d: Fan-out Research
-Spawn 2-3 parallel agents, each researching a different angle.
-Synthesize into coherent report.
+**Trigger condition**: Spawn automatically when ALL of the following are true:
+1. Task type is `build` or `fix` (not research/review/discover)
+2. Any of these signals:
+   - `intake.json` has a non-empty `stack.dev_cmd`
+   - Task touches server entrypoints (app.py, server.ts, main.go, index.ts)
+   - Task touches framework config (vite.config.*, next.config.*, webpack.config.*)
+   - Task description contains runtime/server/crash/browser/frontend/deploy keywords
 
+**Spawn**:
+```
+Agent(log-monitor, sonnet, run_in_background: true):
+  context:
+    PROJECT_ROOT: [cwd]
+    DEV_CMD: [from intake.json or "auto-detect"]
+    DURATION_SECONDS: [30 for vite/next, 60 for django/rails, 120 for java, 45 default]
+    PLATFORM: [detected platform]
+  tools: [Bash, Read, Write, Glob, Grep]
+```
+
+**Important**: The log-monitor does NOT need to complete before the implementer
+finishes. It runs independently. Its output (ai/context/LOG_FINDINGS.md) is
+consumed at Phase 6 during integration.
+
+**At Phase 6**: If LOG_FINDINGS.md has `Status: CRITICAL_FINDINGS`, spawn a
+targeted fix pass (implementer, MAX_ITERATIONS: 3) with the findings as input.
+This is the "runtime fix loop" -- separate from the test-fix loop.
 ## Phase 6: Integration & Memory
 
 1. **Collect sidecar results:** If any background sidecars are still running, wait
    for them (or note they're pending). Fold completed sidecar outputs into the report.
 2. **If MCP servers forged:** Update .mcp.json, note env vars needed
 3. **If skills created:** Verify files, list new commands
-4. **If code written:** Run tests, summarize changes
+4. **If code written:** Run tests, summarize changes. Fold in test-writer sidecar report:
+   → List test files written and test pass counts
+   → If test-writer DONE: include "Tests: N/N passing -- {test file(s)}" in summary
+   → If test-writer PARTIAL: note gaps and any skipped (source-bug) tests explicitly
+   → If test-writer surfaced bugs: flag them: "Test-writer surfaced N potential source bugs:
+      {description} in {source file}. Review before merging."
+   → If test-writer failed or did not run: note "Test coverage: not generated (sidecar failed)"
+      and suggest: "Run /go 'write tests for {file}' as a follow-up"
+   → Check ai/context/LOG_FINDINGS.md if log-monitor sidecar ran:
+      - Status CRITICAL_FINDINGS: spawn targeted fix pass (implementer, MAX_ITERATIONS: 3)
+        with findings as context: "The log-monitor found critical runtime errors.
+        Read ai/context/LOG_FINDINGS.md and fix the critical runtime errors."
+      - Status WARNINGS_ONLY: include warnings in summary, do NOT re-run implementer
+      - Status CLEAN or SKIPPED: note "Runtime log: clean" or "Runtime log: not monitored" 
 5. **If multi-wave execution:** Compile per-wave reports into a single summary.
    Note which sub-tasks ran in parallel and which were sequential.
 6. **Memory checkpoint:** Write what was done to `ai/memory/WORKING_MEMORY.md`:
@@ -392,7 +450,8 @@ Synthesize into coherent report.
    - Built: [what was implemented]
    - Parallel: [N sub-tasks across M waves] (if applicable)
    - Sidecars: [completed/pending] (if applicable)
-   - Tests: [pass/fail]
+   - Tests: [pass/fail] -- [test files written by test-writer, if applicable]
+   - Runtime log: [CRITICAL_FINDINGS (N issues) | WARNINGS_ONLY | CLEAN | SKIPPED]
    - Memory: Checkpointed to ai/memory/WORKING_MEMORY.md
    ```
 
