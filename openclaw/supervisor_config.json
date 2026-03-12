@@ -1,54 +1,105 @@
 {
-  "version": "1.0",
-  "supervisor": {
-    "enabled": true,
-    "state_dir": "ai/supervisor",
-    "tool_broker": {
-      "enabled": true,
-      "config_path": "ai/supervisor/allowlists.json"
+  "version": "1.0.0",
+  "intent_gates": {
+    "ForgeIntent": {
+      "trigger_patterns": [
+        "/forge ",
+        "generate mcp server",
+        "create mcp tool",
+        "build api wrapper"
+      ],
+      "dispatches_to": "forger_skill",
+      "model": "claude-sonnet-4-5",
+      "max_tokens": 8192
     },
-    "wheel_scout": {
-      "enabled": true,
-      "required_for_build": true
-    },
-    "context_builder": {
-      "enabled": true,
-      "cache_hours": 1
+    "BrowseIntent": {
+      "trigger_patterns": [
+        "/browse ",
+        "/chrome ",
+        "scrape ",
+        "navigate to ",
+        "click on ",
+        "fill out the form",
+        "log in to ",
+        "check the website"
+      ],
+      "dispatches_to": "browser_router",
+      "pre_route": true
     }
   },
-  "agents": {
-    "orchestrator": {
-      "tools": {
-        "profile": "minimal",
-        "allow": ["group:sessions", "agents_list", "read"]
-      }
+  "model_routing": {
+    "forger": "claude-sonnet-4-5",
+    "implementer": "claude-sonnet-4-5",
+    "browser": "claude-sonnet-4-5",
+    "chrome": "claude-sonnet-4-5",
+    "wave_planner": "claude-haiku-3-5",
+    "skill_router": "claude-haiku-3-5",
+    "browser_router": "claude-haiku-3-5"
+  },
+  "browser_routing": {
+    "enabled": true,
+    "router_skill": "browser_router",
+    "tier_skills": {
+      "1": "web_adapter_skill",
+      "2": "browser_skill",
+      "3": "chrome_devtools_direct",
+      "4": "chrome_skill"
     },
-    "web-runner": {
-      "tools": {
-        "allow": ["browser", "image", "group:fs"]
-      }
+    "default_tier": 1,
+    "auth_escalation_enabled": true
+  },
+  "wave_execution": {
+    "enabled": true,
+    "trigger_threshold": 3,
+    "planner_skill": "wave_planner_skill",
+    "planner_model": "claude-haiku-3-5",
+    "executor": "openclaw/tools/wave_executor.py",
+    "max_parallel_agents": 4,
+    "workspace_isolation": "copy",
+    "stop_on_wave_failure": false,
+    "wave_timeout_seconds": 300
+  },
+  "ralph_loop": {
+    "enabled": true,
+    "complexity_budgets": {
+      "trivial": 2,
+      "standard": 5,
+      "complex": 7
     },
-    "judge": {
-      "tools": {
-        "allow": ["image", "read", "group:fs"]
-      }
-    },
-    "fixer": {
-      "tools": {
-        "profile": "coding",
-        "allow": ["group:fs", "group:runtime"]
-      }
-    },
-    "wheel-scout": {
-      "tools": {
-        "allow": ["web_search", "github_search", "read"],
-        "deny": ["group:fs", "group:runtime"]
-      }
-    },
-    "context-builder": {
-      "tools": {
-        "allow": ["web_search", "github_search", "group:fs", "read"]
-      }
-    }
+    "blocked_detection_threshold": 3,
+    "partial_chaining_enabled": true,
+    "max_chain_depth": 2,
+    "test_runner": "openclaw/tools/test_runner.py"
+  },
+  "skill_router": {
+    "enabled": true,
+    "model": "claude-haiku-3-5",
+    "catalog_builder": "openclaw/tools/capability_catalog.py",
+    "dispatcher": "openclaw/tools/router_dispatcher.py",
+    "catalog_ttl_seconds": 300,
+    "max_skills_to_load": 5,
+    "run_in_parallel": true,
+    "phase": 3,
+    "catalog_output_pattern": ".openclaw/catalog-{ts}.json",
+    "routing_output_pattern": ".openclaw/routing-{ts}.json"
+  },
+  "deep_chaining": {
+    "enabled": true,
+    "max_chain_depth": 3,
+    "sub_agent_timeout_seconds": 300,
+    "poll_interval_seconds": 2,
+    "chain_task_file_pattern": ".openclaw/tasks/chain-{parent_id}-{skill}-{ts}.json",
+    "allowed_sub_skills": [
+      "forger_skill",
+      "browser_skill",
+      "chrome_skill",
+      "researcher_skill",
+      "implementer_skill",
+      "wave_planner_skill"
+    ],
+    "denied_sub_skills": [
+      "harness_skill",
+      "orchestrator"
+    ]
   }
 }
