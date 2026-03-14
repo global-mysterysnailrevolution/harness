@@ -742,6 +742,87 @@
     font-style: italic;
   }
 
+  /* History scroll with dim-solid-dim mask effect */
+  .aip-history {
+    max-height: 250px;
+    overflow-y: auto;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent 100%);
+    padding: 8px 0;
+  }
+  .aip-history-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(42, 53, 69, 0.2);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .aip-history-item:hover { background: rgba(26, 34, 48, 0.5); color: var(--text); }
+  .aip-history-ts {
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.6;
+    min-width: 55px;
+    white-space: nowrap;
+  }
+  .aip-history-tool {
+    font-weight: 600;
+    font-size: 10px;
+    min-width: 36px;
+    white-space: nowrap;
+  }
+  .aip-history-summary {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .aip-history-detail {
+    display: none;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: var(--surface2);
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--text-dim);
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .aip-history-item.expanded .aip-history-detail { display: block; }
+  .aip-history-header {
+    padding: 6px 8px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    border-bottom: 1px solid rgba(42, 53, 69, 0.3);
+  }
+  .aip-no-history {
+    padding: 16px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  /* Timestamp in tool calls */
+  .aip-tool-ts {
+    font-size: 8px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    min-width: 50px;
+    white-space: nowrap;
+  }
+
   .aip-empty {
     padding: 8px;
     text-align: center;
@@ -1597,9 +1678,65 @@ function getElapsed(first, last) {
 // INLINE AGENT PANEL - TOGGLE
 // ===================================================================
 function toggleInlinePanel(nodeEl) {
-  // Don't toggle if there is no agent data
-  if (!nodeEl.classList.contains('has-agent')) return;
+  var wasOpen = nodeEl.classList.contains('aip-open');
   nodeEl.classList.toggle('aip-open');
+  // If opening and no active agent data, show history
+  if (!wasOpen && !nodeEl.classList.contains('has-agent')) {
+    var agentType = nodeEl.getAttribute('data-agent-type');
+    renderHistoryForNode(nodeEl, agentType);
+  }
+}
+
+function renderHistoryForNode(nodeEl, agentType) {
+  var panel = nodeEl.querySelector('.agent-inline-panel');
+  if (!panel) return;
+  // Find historical agents/events for this node type from agentData
+  var sid = selectedSession;
+  var agents = agentData[sid] || [];
+  var matching = [];
+  for (var i = 0; i < agents.length; i++) {
+    var resolved = resolveAgentNodeType(agents[i]);
+    if (resolved === agentType) matching.push(agents[i]);
+  }
+  if (matching.length === 0) {
+    panel.innerHTML = '<div class="aip-no-history">No activity recorded for this stage</div>';
+    return;
+  }
+  var html = '<div class="aip-history-header">History</div><div class="aip-history">';
+  for (var ai = 0; ai < matching.length; ai++) {
+    var agent = matching[ai];
+    var statusLabel = agent.status === 'error' ? 'ERROR' : (agent.status === 'completed' ? 'DONE' : agent.status);
+    var dur = agent.duration_ms ? formatDuration(agent.duration_ms) : '';
+    html += '<div style="padding:4px 8px;font-size:10px;color:var(--accent2);font-weight:600;border-bottom:1px solid rgba(42,53,69,0.3);">';
+    html += escapeHtml(agent.name || 'Agent') + ' <span style="color:var(--text-dim);font-weight:400;">' + statusLabel + (dur ? ' ' + dur : '') + '</span>';
+    if (agent.start) html += ' <span class="aip-history-ts">' + formatTimestamp(agent.start) + '</span>';
+    html += '</div>';
+    var tcs = agent.tool_calls || [];
+    for (var ti = 0; ti < tcs.length; ti++) {
+      var tc = tcs[ti];
+      var ts = tc.ts ? formatTimestamp(tc.ts) : '';
+      html += '<div class="aip-history-item" onclick="this.classList.toggle(\'expanded\');event.stopPropagation();">';
+      html += '<span class="aip-history-ts">' + ts + '</span>';
+      html += '<span class="aip-history-tool ' + getToolNameClass(tc.tool) + '">' + escapeHtml(tc.tool) + '</span>';
+      html += '<span class="aip-history-summary">' + escapeHtml((tc.input_summary || '').slice(0, 100)) + '</span>';
+      if (tc.duration_ms) html += '<span style="font-size:9px;color:var(--text-dim);">' + formatDuration(tc.duration_ms) + '</span>';
+      if (tc.output_summary) {
+        html += '<div class="aip-history-detail">' + escapeHtml(tc.output_summary.slice(0, 400)) + '</div>';
+      }
+      html += '</div>';
+    }
+  }
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  var h = d.getHours().toString().padStart(2, '0');
+  var m = d.getMinutes().toString().padStart(2, '0');
+  var s = d.getSeconds().toString().padStart(2, '0');
+  return h + ':' + m + ':' + s;
 }
 
 function toggleToolDetail(toolEl) {
@@ -1615,14 +1752,14 @@ function toggleToolDetail(toolEl) {
 function resetAllInlinePanels() {
   var nodes = document.querySelectorAll('[data-agent-type]');
   for (var i = 0; i < nodes.length; i++) {
-    nodes[i].classList.remove('has-agent', 'has-agent-running', 'has-agent-complete', 'has-agent-error', 'aip-open');
-    var panel = nodes[i].querySelector('.agent-inline-panel');
-    if (panel) panel.innerHTML = '';
+    // Preserve aip-open state — don't remove it on data refresh
+    nodes[i].classList.remove('has-agent', 'has-agent-running', 'has-agent-complete', 'has-agent-error');
     var badge = nodes[i].querySelector('.agent-badge');
     if (badge) {
       badge.querySelector('.badge-count').textContent = '0';
       badge.querySelector('.badge-dot').className = 'badge-dot';
     }
+    // Don't clear panel innerHTML here — renderInlineAgentPanels will update it
   }
 }
 
@@ -1647,8 +1784,13 @@ function findNodeByAgentType(agentType) {
 }
 
 function renderInlineAgentPanels(agents) {
-  // First, clear all panels
-  resetAllInlinePanels();
+  // Reset agent classes but preserve open state
+  var allNodes = document.querySelectorAll('[data-agent-type]');
+  for (var ri = 0; ri < allNodes.length; ri++) {
+    allNodes[ri].classList.remove('has-agent', 'has-agent-running', 'has-agent-complete', 'has-agent-error');
+    var b = allNodes[ri].querySelector('.agent-badge');
+    if (b) { b.querySelector('.badge-count').textContent = '0'; b.querySelector('.badge-dot').className = 'badge-dot'; }
+  }
 
   // Group agents by node type
   var nodeAgents = {};
@@ -1744,7 +1886,9 @@ function renderInlineAgentPanels(agents) {
           var tcStatusText = tcRunning ? '&#9679;' : (tcError ? '&#10007;' : formatDuration(tc.duration_ms));
           var tcStatusClass = tcRunning ? 'ts-running' : (tcError ? 'ts-error' : 'ts-ok');
 
+          var toolTs = tc.ts ? formatTimestamp(tc.ts) : '';
           html += '<div class="' + tcClass + '" onclick="toggleToolDetail(this)">';
+          html += '<span class="aip-tool-ts">' + toolTs + '</span>';
           html += '<span class="aip-tool-icon">' + (tcRunning ? '&#9654;' : '&#10003;') + '</span>';
           html += '<span class="aip-tool-name ' + getToolNameClass(tc.tool) + '">' + escapeHtml(tc.tool) + '</span>';
           html += '<span class="aip-tool-summary">' + escapeHtml((tc.input_summary || '').slice(0, 80)) + '</span>';
@@ -1783,7 +1927,10 @@ function renderInlineAgentPanels(agents) {
       }
     }
 
+    // Preserve scroll position when updating open panels
+    var scrollTop = panel.scrollTop;
     panel.innerHTML = html;
+    if (scrollTop > 0) panel.scrollTop = scrollTop;
   }
 }
 
