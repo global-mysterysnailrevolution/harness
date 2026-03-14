@@ -1,0 +1,9 @@
+{
+  "name": "claude-trace",
+  "version": "1.0.0",
+  "description": "Real-time orchestration tracer and dashboard for Claude Code",
+  "scripts": {
+    "start": "node server.js",
+    "clean": "rm -f events.jsonl"
+  }
+}
