@@ -242,6 +242,7 @@ function buildAgentView(events) {
           end: null,
           duration_ms: null,
           tool_calls: [],
+          sid: ev.sid || 'unknown',
           parent_id: agentStack.length > 0 ? agentStack[agentStack.length - 1].id : null,
         };
         agents.push(agent);

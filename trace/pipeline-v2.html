@@ -814,6 +814,74 @@
     font-style: italic;
   }
 
+  /* Collapsed history agent row — grey, compact */
+  .aip-history-agent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(42, 53, 69, 0.2);
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-wrap: wrap;
+    opacity: 0.6;
+  }
+  .aip-history-agent:hover {
+    background: rgba(26, 34, 48, 0.4);
+    opacity: 0.85;
+  }
+  .aip-history-agent .hist-arrow {
+    font-size: 8px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+    min-width: 10px;
+  }
+  .aip-history-agent.hist-expanded .hist-arrow {
+    transform: rotate(90deg);
+  }
+  .aip-history-agent .hist-name {
+    color: var(--text-dim);
+    font-weight: 600;
+    flex-shrink: 0;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .aip-history-agent .hist-meta {
+    color: var(--text-dim);
+    opacity: 0.5;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  .aip-history-agent .hist-session {
+    color: var(--text-dim);
+    opacity: 0.4;
+    font-size: 9px;
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .aip-history-agent .hist-ts {
+    color: var(--text-dim);
+    opacity: 0.4;
+    font-size: 8px;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  /* Hidden tool calls — only shown when expanded */
+  .aip-history-agent .hist-tools {
+    display: none;
+    width: 100%;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(42, 53, 69, 0.2);
+  }
+  .aip-history-agent.hist-expanded .hist-tools {
+    display: block;
+  }
+
   /* Timestamp in tool calls */
   .aip-tool-ts {
     font-size: 8px;
@@ -1726,12 +1794,22 @@ function renderHistoryForNode(nodeEl, agentType) {
   var html = '<div class="aip-history-header">History</div><div class="aip-history">';
   for (var ai = 0; ai < matching.length; ai++) {
     var agent = matching[ai];
-    var statusLabel = agent.status === 'error' ? 'ERROR' : (agent.status === 'completed' ? 'DONE' : agent.status);
+    var statusLabel = agent.status === 'error' ? 'ERR' : (agent.status === 'completed' ? 'done' : agent.status);
     var dur = agent.duration_ms ? formatDuration(agent.duration_ms) : '';
-    html += '<div style="padding:4px 8px;font-size:10px;color:var(--accent2);font-weight:600;border-bottom:1px solid rgba(42,53,69,0.3);">';
-    html += escapeHtml(agent.name || 'Agent') + ' <span style="color:var(--text-dim);font-weight:400;">' + statusLabel + (dur ? ' ' + dur : '') + '</span>';
-    if (agent.start) html += ' <span class="aip-history-ts">' + formatTimestamp(agent.start) + '</span>';
-    html += '</div>';
+    var agentTs = agent.start ? formatTimestamp(agent.start) : '';
+    var sessionLabel = agent.sid ? ('session ' + agent.sid) : '';
+    var tcCount = (agent.tool_calls || []).length;
+    // Collapsed agent row — grey, just name + session + timestamp
+    html += '<div class="aip-history-agent" onclick="this.classList.toggle(\'hist-expanded\');event.stopPropagation();">';
+    html += '<span class="hist-arrow">&#9654;</span>';
+    html += '<span class="hist-name">' + escapeHtml(agent.name || 'Agent') + '</span>';
+    html += '<span class="hist-meta">' + statusLabel + '</span>';
+    if (dur) html += '<span class="hist-meta">' + dur + '</span>';
+    if (sessionLabel) html += '<span class="hist-session">' + sessionLabel + '</span>';
+    if (agentTs) html += '<span class="hist-ts">' + agentTs + '</span>';
+    html += '<span class="hist-meta">' + tcCount + ' calls</span>';
+    // Expandable tool calls (hidden by default)
+    html += '<div class="hist-tools">';
     var tcs = agent.tool_calls || [];
     for (var ti = 0; ti < tcs.length; ti++) {
       var tc = tcs[ti];
@@ -1746,6 +1824,8 @@ function renderHistoryForNode(nodeEl, agentType) {
       }
       html += '</div>';
     }
+    html += '</div>'; // .hist-tools
+    html += '</div>'; // .aip-history-agent
   }
   html += '</div>';
   panel.innerHTML = html;
