@@ -452,6 +452,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Pipeline v2 - inline agent activity
+  if (url.pathname === "/pipeline-v2") {
+    try {
+      const pipelineV2File = path.join(TRACE_DIR, "pipeline-v2.html");
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(fs.readFileSync(pipelineV2File, "utf8"));
+    } catch (e) {
+      res.writeHead(500);
+      res.end("Pipeline v2 not found: " + e.message);
+    }
+    return;
+  }
+
   res.writeHead(404);
   res.end('Not found');
 });
