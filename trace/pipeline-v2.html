@@ -1455,6 +1455,7 @@ var lastAgentRefresh = 0;
 // ===== AGENT-TO-NODE MAPPING =====
 // Maps agent name patterns to data-agent-type values on node elements
 var AGENT_NODE_MAP = {
+  // Exact role matches (highest priority — longer strings matched first)
   'intake':            'intake',
   'classify':          'classify',
   'assessment':        'classify',
@@ -1462,6 +1463,7 @@ var AGENT_NODE_MAP = {
   'task_plan':         'decomposition',
   'wheel-scout':       'wheel-scout',
   'wheel scout':       'wheel-scout',
+  'landscape':         'wheel-scout',
   'skill-router':      'skill-router',
   'skill router':      'skill-router',
   'context-prime':     'context-prime',
@@ -1477,6 +1479,7 @@ var AGENT_NODE_MAP = {
   'tool-broker':       'deliberation',
   'forger':            'forger',
   'forge':             'forger',
+  'mcp server':        'forger',
   'skill-creator':     'skill-creator',
   'implementer':       'implementer',
   'ralph':             'implementer',
@@ -1495,6 +1498,24 @@ var AGENT_NODE_MAP = {
   'integrate':         'integrate',
   'summary':           'summary',
   'wave report':       'wave-report',
+  // Task-type keyword matches (catch real-world agent names)
+  'implement':         'implementer',
+  'build ':            'implementer',
+  'write ':            'implementer',
+  'create ':           'implementer',
+  'add ':              'implementer',
+  'fix ':              'implementer',
+  'refactor':          'implementer',
+  'research':          'researcher',
+  'explore':           'researcher',
+  'search':            'researcher',
+  'find ':             'researcher',
+  'fetch':             'researcher',
+  'analyze':           'researcher',
+  'investigate':       'researcher',
+  'compare':           'researcher',
+  'scan':              'context-hydrator',
+  'prime':             'context-prime',
   'wave-report':       'wave-report',
 };
 
@@ -1695,7 +1716,7 @@ function renderHistoryForNode(nodeEl, agentType) {
   var agents = agentData[sid] || [];
   var matching = [];
   for (var i = 0; i < agents.length; i++) {
-    var resolved = resolveAgentNodeType(agents[i]);
+    var resolved = resolveAgentNodeType(agents[i]) || 'integrate';
     if (resolved === agentType) matching.push(agents[i]);
   }
   if (matching.length === 0) {
@@ -1796,7 +1817,7 @@ function renderInlineAgentPanels(agents) {
   var nodeAgents = {};
   for (var i = 0; i < agents.length; i++) {
     var nodeType = resolveAgentNodeType(agents[i]);
-    if (!nodeType) continue;
+    if (!nodeType) nodeType = 'integrate'; // fallback: unmatched agents go to integrate
     if (!nodeAgents[nodeType]) nodeAgents[nodeType] = [];
     nodeAgents[nodeType].push(agents[i]);
   }
