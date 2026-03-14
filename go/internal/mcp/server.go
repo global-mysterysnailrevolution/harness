@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/global-mysterysnailrevolution/harness/internal/agents"
 	"github.com/global-mysterysnailrevolution/harness/internal/audit"
 	"github.com/global-mysterysnailrevolution/harness/internal/classify"
 	"github.com/global-mysterysnailrevolution/harness/internal/config"
@@ -24,6 +25,7 @@ type Server struct {
 	pipeline   *vet.Pipeline
 	registry   *discover.Registry
 	router     *route.Router
+	tracker    *agents.Tracker
 }
 
 // NewServer creates a new MCP server with all subsystems.
@@ -43,6 +45,16 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		registry:   reg,
 		router:     route.NewRouter(reg),
 	}, nil
+}
+
+// SetTracker attaches an agent tracker to the server.
+func (s *Server) SetTracker(t *agents.Tracker) {
+	s.tracker = t
+}
+
+// Tracker returns the attached agent tracker (may be nil).
+func (s *Server) Tracker() *agents.Tracker {
+	return s.tracker
 }
 
 // Run starts the MCP server on stdio.
@@ -105,6 +117,12 @@ func (s *Server) dispatch(ctx context.Context, req mcplib.CallToolRequest) (*mcp
 		return s.handleAllowlist(ctx, req)
 	case "harness_config":
 		return s.handleConfig(ctx, req)
+	case "harness_agents_list":
+		return s.handleAgentsList(ctx, req)
+	case "harness_agents_cancel":
+		return s.handleAgentsCancel(ctx, req)
+	case "harness_agents_register":
+		return s.handleAgentsRegister(ctx, req)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", req.Params.Name)
 	}

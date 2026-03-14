@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/global-mysterysnailrevolution/harness/internal/agents"
 	"github.com/global-mysterysnailrevolution/harness/internal/audit"
 	"github.com/global-mysterysnailrevolution/harness/internal/config"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
@@ -130,4 +131,74 @@ func (s *Server) handleConfig(_ context.Context, req mcplib.CallToolRequest) (*m
 	default:
 		return nil, fmt.Errorf("unknown config action: %s", action)
 	}
+}
+
+func (s *Server) handleAgentsList(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	if s.tracker == nil {
+		return nil, fmt.Errorf("agent tracker not initialized")
+	}
+	filter := getStringArg(req, "filter")
+	var list []*agents.AgentInfo
+	if filter == "active" {
+		list = s.tracker.Active()
+	} else {
+		list = s.tracker.List()
+	}
+	return jsonResult(list)
+}
+
+func (s *Server) handleAgentsCancel(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	if s.tracker == nil {
+		return nil, fmt.Errorf("agent tracker not initialized")
+	}
+	id := getStringArg(req, "id")
+	if id == "" {
+		return nil, fmt.Errorf("id is required")
+	}
+	if err := s.tracker.Cancel(id); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
+	return jsonResult(map[string]string{"status": "cancelled", "id": id})
+}
+
+func (s *Server) handleAgentsRegister(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	if s.tracker == nil {
+		return nil, fmt.Errorf("agent tracker not initialized")
+	}
+	id := getStringArg(req, "id")
+	if id == "" {
+		return nil, fmt.Errorf("id is required")
+	}
+
+	agentType := getStringArg(req, "type")
+	description := getStringArg(req, "description")
+	parentID := getStringArg(req, "parent_id")
+	status := getStringArg(req, "status")
+	progress := getStringArg(req, "progress")
+
+	// If agent already exists, treat as an update
+	existing := s.tracker.Get(id)
+	if existing != nil {
+		if status != "" {
+			s.tracker.Update(id, agents.AgentStatus(status), progress)
+		} else if progress != "" {
+			s.tracker.Update(id, existing.Status, progress)
+		}
+		updated := s.tracker.Get(id)
+		return jsonResult(updated)
+	}
+
+	// Register new agent
+	if agentType == "" {
+		agentType = "unknown"
+	}
+	s.tracker.Register(id, agentType, description, parentID)
+
+	// If a non-pending status was provided, update immediately
+	if status != "" && status != string(agents.StatusPending) {
+		s.tracker.Update(id, agents.AgentStatus(status), progress)
+	}
+
+	info := s.tracker.Get(id)
+	return jsonResult(info)
 }
